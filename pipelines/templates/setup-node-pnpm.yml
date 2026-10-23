@@ -1,0 +1,33 @@
+# Node from .nvmrc, pnpm from package.json "packageManager" (via Corepack),
+# and a frozen install with the pnpm store cached by lockfile hash.
+parameters:
+  - name: installPlaywrightChromium
+    type: boolean
+    default: false
+
+steps:
+  - task: UseNode@1
+    displayName: Use Node.js from .nvmrc
+    inputs:
+      versionSource: fromFile
+      versionFilePath: .nvmrc
+
+  - script: corepack enable
+    displayName: Enable Corepack
+
+  - task: Cache@2
+    displayName: Cache pnpm store
+    inputs:
+      key: 'pnpm | "$(Agent.OS)" | pnpm-lock.yaml'
+      restoreKeys: |
+        pnpm | "$(Agent.OS)"
+      path: $(Pipeline.Workspace)/.pnpm-store
+
+  - script: pnpm install --frozen-lockfile --store-dir "$(Pipeline.Workspace)/.pnpm-store"
+    displayName: pnpm install
+
+  # --with-deps installs OS packages with sudo. On self-hosted agents without
+  # passwordless sudo, preinstall them and drop the flag.
+  - ${{ if parameters.installPlaywrightChromium }}:
+      - script: pnpm exec playwright install --with-deps chromium
+        displayName: Install Playwright Chromium

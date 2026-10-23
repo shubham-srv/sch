@@ -1,0 +1,3 @@
+# TODO(owner): decide per environment whether search engines may index the site.
+User-agent: *
+Disallow:

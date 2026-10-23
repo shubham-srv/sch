@@ -1,0 +1,27 @@
+# E2E and accessibility stack: the production image under test plus the mock
+# API. Both images define a HEALTHCHECK, so `up --wait` blocks until ready.
+#
+#   WEB_IMAGE           image under test (default web:local from `pnpm docker:build`)
+#   WEB_HOST_PORT       host port for the app (default 3000)
+#   MOCK_API_HOST_PORT  host port for the mock API (default 4010)
+#   COMPOSE_PROJECT_NAME  overrides `name` so parallel CI jobs do not collide
+name: web-e2e
+
+services:
+  mock-api:
+    build:
+      context: .
+      dockerfile: e2e/mock-api/Dockerfile
+    ports:
+      - "${MOCK_API_HOST_PORT:-4010}:4010"
+
+  web:
+    image: ${WEB_IMAGE:-web:local}
+    pull_policy: missing
+    environment:
+      API_BASE_URL: http://mock-api:4010
+    ports:
+      - "${WEB_HOST_PORT:-3000}:3000"
+    depends_on:
+      mock-api:
+        condition: service_healthy

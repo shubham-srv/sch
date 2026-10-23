@@ -1,0 +1,12 @@
+pnpm-lock.yaml
+.next/
+coverage/
+reports/
+playwright-report/
+test-results/
+# Generator output: formatting it would break the api:types drift check.
+src/lib/api/generated/
+# Written by `next dev`.
+AGENTS.md
+# Owner-supplied input, kept verbatim.
+docs/spec.md

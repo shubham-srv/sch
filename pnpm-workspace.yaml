@@ -1,0 +1,15 @@
+engineStrict: true
+
+# Run package.json scripts through pnpm's cross-platform shell, so scripts
+# like `A11Y_REPORT_FILE=... pa11y-ci` work on Windows too.
+shellEmulator: true
+
+# Dependency build scripts are blocked unless listed here (pnpm 10.26+).
+# All four ship their native binaries as optional dependencies, so their
+# install scripts are not needed. puppeteer's script would download Chrome;
+# pa11y-ci uses Playwright's Chromium instead (see .pa11yci.js).
+allowBuilds:
+  esbuild: false
+  puppeteer: false
+  sharp: false
+  unrs-resolver: false

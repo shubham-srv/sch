@@ -1,0 +1,10 @@
+# Context filter for e2e/mock-api/Dockerfile (BuildKit reads
+# <Dockerfile>.dockerignore in place of the root .dockerignore).
+*
+!package.json
+!pnpm-lock.yaml
+!pnpm-workspace.yaml
+!.npmrc
+!tests/mocks/**
+!e2e/mock-api/**
+e2e/mock-api/Dockerfile*
