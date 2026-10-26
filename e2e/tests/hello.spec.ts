@@ -1,8 +1,9 @@
 import { expect, test } from "@playwright/test";
 import { HelloPage } from "../pages/hello.page";
 
-// Against a real backend the greeting can differ; the smoke run sets this.
-const expectedGreeting = process.env.SMOKE_EXPECTED_GREETING ?? "hello world";
+// The greeting comes from a real backend, so its text depends on the
+// environment. Set E2E_EXPECTED_GREETING to check it exactly.
+const expectedGreeting = process.env.E2E_EXPECTED_GREETING;
 
 test(
   "shows the backend greeting as the page heading",
@@ -17,8 +18,16 @@ test(
     const hello = new HelloPage(page);
     await hello.goto();
 
-    await expect(hello.greeting(expectedGreeting)).toBeVisible();
     await expect(hello.headings).toHaveCount(1);
+    if (expectedGreeting) {
+      await expect(hello.greeting(expectedGreeting)).toBeVisible();
+    } else {
+      await expect(hello.headings).not.toBeEmpty();
+    }
+    // The error page also has an h1, so make sure this is not it.
+    await expect(
+      page.getByRole("heading", { name: "Something went wrong" }),
+    ).toHaveCount(0);
     // The layout's "%s | Web" template applies to child segments only.
     await expect(page).toHaveTitle("Hello world");
     expect(errors).toEqual([]);

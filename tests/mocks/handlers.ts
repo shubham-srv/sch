@@ -1,8 +1,8 @@
 import { http, HttpResponse } from "msw";
 
-// The single fake backend. Vitest uses these handlers through MSW's
-// setupServer, and the E2E mock API (e2e/mock-api/server.ts) serves the same
-// ones over HTTP.
+// The fake backend for Vitest (through MSW's setupServer). Defaults are the
+// happy path; a test puts the UI into another state (error, empty, slow) by
+// overriding a handler with server.use(...). E2E tests use a real backend.
 
 export const greetingFixture = { message: "hello world" };
 

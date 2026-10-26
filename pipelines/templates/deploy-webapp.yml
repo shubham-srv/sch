@@ -1,7 +1,8 @@
-# Deploys the image to a Web App slot and waits until /api/health answers.
-# Sets the output variable deployContainer.AppServiceApplicationUrl.
+# Zip-deploys the packaged app (a folder containing server.js) to a slot of
+# the Linux Web App, then waits until /api/health answers. Sets the output
+# variable deployApp.AppServiceApplicationUrl.
 parameters:
-  - name: webImage
+  - name: package
     type: string
   - name: slot
     type: string
@@ -9,32 +10,25 @@ parameters:
     type: string
 
 steps:
-  - task: AzureWebAppContainer@1
-    name: deployContainer
-    displayName: Deploy image to slot ${{ parameters.slot }}
+  - task: AzureWebApp@1
+    name: deployApp
+    displayName: Deploy to slot ${{ parameters.slot }}
     inputs:
       azureSubscription: ${{ variables.armServiceConnection }}
+      appType: webAppLinux
       appName: $(webAppName)
       deployToSlotOrASE: true
       resourceGroupName: $(resourceGroup)
       slotName: ${{ parameters.slot }}
-      containers: ${{ parameters.webImage }}
+      package: ${{ parameters.package }}
+      runtimeStack: NODE|24-lts
+      startUpCommand: node server.js
+      # The package is already built: App Service must not run its own build.
       appSettings: >-
         -API_BASE_URL ${{ parameters.apiBaseUrl }}
-        -WEBSITES_PORT 3000
-        -WEBSITES_ENABLE_APP_SERVICE_STORAGE false
+        -HOSTNAME 0.0.0.0
+        -SCM_DO_BUILD_DURING_DEPLOYMENT false
 
-  - script: |
-      url="$(deployContainer.AppServiceApplicationUrl)"
-      for attempt in $(seq 1 60); do
-        code=$(curl -s -o /dev/null -w '%{http_code}' "$url/api/health" || true)
-        if [ "$code" = "200" ]; then
-          echo "$url is healthy"
-          exit 0
-        fi
-        echo "Attempt $attempt: /api/health returned $code; retrying in 10s"
-        sleep 10
-      done
-      echo "##vso[task.logissue type=error]$url/api/health did not return 200 within 10 minutes"
-      exit 1
-    displayName: Wait for /api/health
+  - template: wait-for-health.yml
+    parameters:
+      url: $(deployApp.AppServiceApplicationUrl)

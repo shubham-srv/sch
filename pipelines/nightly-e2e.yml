@@ -1,0 +1,87 @@
+# Nightly checks against the deployed environments, run even when the
+# frontend has not changed, so a backend change that breaks the frontend
+# shows up within a day. Builds and deploys nothing.
+#
+# Create it as a second pipeline in Azure DevOps (docs/deployment-azure.md).
+
+trigger: none
+pr: none
+
+schedules:
+  - cron: "0 2 * * *"
+    displayName: Nightly E2E (02:00 UTC)
+    branches:
+      include:
+        - main
+    always: true
+
+parameters:
+  - name: agentPool
+    displayName: Self-hosted Linux agent pool
+    type: string
+    default: "<agent-pool>" # TODO(owner)
+
+variables:
+  - name: expectedGreeting
+    value: ""
+  - group: web-frontend
+  - name: CI
+    value: "true"
+  - name: HUSKY
+    value: "0"
+
+pool:
+  name: ${{ parameters.agentPool }}
+
+jobs:
+  - job: Staging_E2E
+    displayName: Full E2E suite against staging
+    steps:
+      - checkout: self
+      - template: templates/setup-node-pnpm.yml
+        parameters:
+          installPlaywrightChromium: true
+      - script: pnpm test:e2e
+        displayName: Playwright against staging
+        env:
+          PLAYWRIGHT_BASE_URL: $(stagingUrl)
+          E2E_EXPECTED_GREETING: $(expectedGreeting)
+      - template: templates/publish-playwright.yml
+        parameters:
+          title: Nightly staging E2E
+          artifactPrefix: nightly-staging
+
+  - job: Staging_Accessibility
+    displayName: Accessibility against staging
+    steps:
+      - checkout: self
+      - template: templates/setup-node-pnpm.yml
+        parameters:
+          installPlaywrightChromium: true
+      - script: pnpm a11y:ci
+        displayName: pa11y-ci against staging
+        env:
+          A11Y_BASE_URL: $(stagingUrl)
+      - task: PublishPipelineArtifact@1
+        displayName: Publish a11y report
+        condition: always()
+        inputs:
+          targetPath: reports/a11y.json
+          artifact: nightly-a11y-report-$(System.JobAttempt)
+
+  - job: Production_Smoke
+    displayName: Smoke tests against production
+    steps:
+      - checkout: self
+      - template: templates/setup-node-pnpm.yml
+        parameters:
+          installPlaywrightChromium: true
+      - script: pnpm test:e2e --grep @smoke
+        displayName: Playwright @smoke against production
+        env:
+          PLAYWRIGHT_BASE_URL: $(productionUrl)
+          E2E_EXPECTED_GREETING: $(expectedGreeting)
+      - template: templates/publish-playwright.yml
+        parameters:
+          title: Nightly production smoke
+          artifactPrefix: nightly-production

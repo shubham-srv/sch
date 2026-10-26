@@ -29,7 +29,6 @@ export default defineConfig({
         "src/app/**",
         // Vendored shadcn/ui code.
         "src/components/ui/**",
-        "src/lib/api/generated/**",
       ],
       // Placeholder thresholds; see docs/testing.md.
       thresholds: { lines: 80, functions: 80, branches: 75, statements: 80 },

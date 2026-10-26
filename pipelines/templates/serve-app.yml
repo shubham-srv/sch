@@ -1,0 +1,44 @@
+# Starts the packaged app (dist/app, i.e. server.js) on the agent, pointed at
+# a real backend, runs the given steps against it, then always stops it and
+# prints its log.
+parameters:
+  - name: appDirectory
+    type: string
+  - name: apiBaseUrl
+    type: string
+  - name: port
+    type: string
+    default: "3000"
+  - name: steps
+    type: stepList
+    default: []
+
+steps:
+  - script: |
+      nohup node server.js > "$(Agent.TempDirectory)/app-${{ parameters.port }}.log" 2>&1 &
+      echo $! > "$(Agent.TempDirectory)/app-${{ parameters.port }}.pid"
+      for attempt in $(seq 1 30); do
+        if curl -sf "http://127.0.0.1:${{ parameters.port }}/api/health" > /dev/null; then
+          echo "The app is up on port ${{ parameters.port }}"
+          exit 0
+        fi
+        sleep 2
+      done
+      echo "##vso[task.logissue type=error]The app did not answer /api/health within 60 seconds"
+      cat "$(Agent.TempDirectory)/app-${{ parameters.port }}.log"
+      exit 1
+    displayName: Start the packaged app
+    workingDirectory: ${{ parameters.appDirectory }}
+    env:
+      PORT: ${{ parameters.port }}
+      HOSTNAME: 127.0.0.1
+      API_BASE_URL: ${{ parameters.apiBaseUrl }}
+
+  - ${{ each step in parameters.steps }}:
+      - ${{ step }}
+
+  - script: |
+      kill "$(cat "$(Agent.TempDirectory)/app-${{ parameters.port }}.pid")" 2>/dev/null || true
+      cat "$(Agent.TempDirectory)/app-${{ parameters.port }}.log"
+    displayName: Stop the app and print its log
+    condition: always()

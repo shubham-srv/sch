@@ -1,5 +1,11 @@
 engineStrict: true
 
+# A flat node_modules of real folders (like npm's) instead of pnpm's default
+# symlinked layout. The Next.js standalone output copies node_modules, and a
+# zip deployment to App Service does not reliably keep symlinks. ESLint's
+# import/no-extraneous-dependencies rule replaces the strictness this gives up.
+nodeLinker: hoisted
+
 # Run package.json scripts through pnpm's cross-platform shell, so scripts
 # like `A11Y_REPORT_FILE=... pa11y-ci` work on Windows too.
 shellEmulator: true

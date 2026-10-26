@@ -22,7 +22,7 @@ describe("getServerEnv", () => {
     "https://backend.example.com/api",
     "http://localhost:4010",
     "http://127.0.0.1:4010",
-    "http://mock-api:4010",
+    "http://backend:8080",
   ])("accepts %s", async (value) => {
     vi.stubEnv("API_BASE_URL", value);
     const { getServerEnv } = await loadEnvModule();

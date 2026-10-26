@@ -1,0 +1,20 @@
+# Polls <url>/api/health until it answers 200, for up to 10 minutes.
+parameters:
+  - name: url
+    type: string
+
+steps:
+  - script: |
+      url="${{ parameters.url }}"
+      for attempt in $(seq 1 60); do
+        code=$(curl -s -o /dev/null -w '%{http_code}' "$url/api/health" || true)
+        if [ "$code" = "200" ]; then
+          echo "$url is healthy"
+          exit 0
+        fi
+        echo "Attempt $attempt: /api/health returned $code; retrying in 10s"
+        sleep 10
+      done
+      echo "##vso[task.logissue type=error]$url/api/health did not return 200 within 10 minutes"
+      exit 1
+    displayName: Wait for /api/health

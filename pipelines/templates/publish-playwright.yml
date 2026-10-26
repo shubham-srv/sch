@@ -1,0 +1,28 @@
+# Publishes Playwright's JUnit results, HTML report, traces and videos,
+# whether the tests passed or not.
+parameters:
+  - name: title
+    type: string
+  - name: artifactPrefix
+    type: string
+
+steps:
+  - task: PublishTestResults@2
+    displayName: Publish ${{ parameters.title }} results
+    condition: always()
+    inputs:
+      testResultsFormat: JUnit
+      testResultsFiles: reports/junit/playwright.xml
+      testRunTitle: ${{ parameters.title }}
+  - task: PublishPipelineArtifact@1
+    displayName: Publish ${{ parameters.title }} report
+    condition: always()
+    inputs:
+      targetPath: playwright-report
+      artifact: ${{ parameters.artifactPrefix }}-report-$(System.JobAttempt)
+  - task: PublishPipelineArtifact@1
+    displayName: Publish ${{ parameters.title }} traces and videos
+    condition: always()
+    inputs:
+      targetPath: test-results
+      artifact: ${{ parameters.artifactPrefix }}-traces-$(System.JobAttempt)

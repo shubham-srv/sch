@@ -11,13 +11,14 @@
 | `src/components/layout/` | Shared layout pieces (header, footer) once the root layout outgrows inline markup.                                                                                | no         |
 | `src/hooks/`             | Shared client hooks.                                                                                                                                              | no         |
 | `src/lib/`               | Framework-agnostic plumbing: `env.server.ts`, `utils.ts` (`cn`).                                                                                                  | yes        |
-| `src/lib/api/`           | Typed backend client: `client.ts`, `server.ts`, `errors.ts`, `generated/`.                                                                                        | yes        |
-| `tests/`                 | Vitest setup, shared MSW handlers, test utilities, integration tests.                                                                                             | yes        |
-| `e2e/`                   | Playwright specs, page objects, the mock API server. Never imported by app code.                                                                                  | yes        |
+| `src/lib/api/`           | Backend client: `client.ts`, `server.ts`, `errors.ts`.                                                                                                            | yes        |
+| `tests/`                 | Vitest setup, the MSW fake backend, test utilities, integration tests.                                                                                            | yes        |
+| `e2e/`                   | Playwright specs and page objects. Never imported by app code.                                                                                                    | yes        |
+| `scripts/`               | Build helpers: `package-app.mjs` assembles `dist/app`.                                                                                                            | yes        |
 
 ## Import rules
 
-ESLint enforces these with `no-restricted-imports` (`eslint.config.mjs`):
+ESLint enforces these (`eslint.config.mjs`):
 
 - Inside `src/`, imports that cross folders use the `@/` alias; `../` is not allowed.
   `./` imports within a folder are fine.
@@ -25,6 +26,10 @@ ESLint enforces these with `no-restricted-imports` (`eslint.config.mjs`):
   Inside a feature, its own files may use `@/features/<same-name>/...`.
 - `src/components/ui/` may not import `@/features/*` or `@/lib/api`.
 - `src/lib/` may not import `@/features/*` or `@/components/*`.
+- Every package you import must be listed in `package.json`
+  (`import/no-extraneous-dependencies`), and app code may not import
+  devDependencies. `node_modules` is flat, so without this rule a package
+  installed only as someone else's dependency would still import.
 
 The per-feature rules are generated from the folders in `src/features/`, so a
 new feature is covered automatically.
@@ -41,18 +46,23 @@ new feature is covered automatically.
   plain functions (mappers, error handling) that Vitest covers; the async
   components are exercised by Playwright.
 
-## Rendering and config
+## Rendering, config and build output
 
 - **Cache Components** is on (the Next.js 16.4 default, and mandatory in the
   next major). Each route has a prerendered static shell. Request-time data
   streams in inside `<Suspense>`. `src/app/page.tsx` wraps the greeting in
   `<Suspense>`, and `getApiClient()` calls `connection()`, so every backend call
   happens per request and never during the build.
-- **One image for every environment.** Runtime config comes from server
-  environment variables, read through `getServerEnv()` in
-  `src/lib/env.server.ts`. It validates with zod **on first call**, not at
+- **One build for every environment.** Runtime config comes from server
+  environment variables (Web App app settings), read through `getServerEnv()`
+  in `src/lib/env.server.ts`. It validates with zod **on first call**, not at
   import, so `next build` works without runtime variables. Do not use
   `NEXT_PUBLIC_*` for anything that differs between environments.
+- **Build output.** `pnpm build` runs `next build` (with `output: "standalone"`)
+  and then `scripts/package-app.mjs`. That script copies the standalone server,
+  `.next/static` and `public/` into `dist/app`. `dist/app` is self-contained:
+  `node dist/app/server.js` runs it with no install. This folder is what gets
+  tested, stored in Azure Artifacts and deployed. `pnpm start` runs it locally.
 - **Security headers** are set for all routes in `next.config.ts`. A
   nonce-based Content-Security-Policy is a planned follow-up.
 - **Observability:** add `src/instrumentation.ts` (Next.js `register()` hook)
@@ -60,30 +70,35 @@ new feature is covered automatically.
 
 ## API conventions
 
-1. **Types come from the contract.** `openapi/openapi.json` is a committed
-   snapshot of the backend's OpenAPI document. `pnpm api:types` generates
-   `src/lib/api/generated/schema.d.ts` (committed). CI fails if regeneration
-   changes it. `pnpm api:types:pull` refreshes the snapshot from `OPENAPI_URL`.
+1. **The contract lives in zod schemas.** There is no OpenAPI document or
+   generated client. Each feature's `api/mappers.ts` holds a zod schema for
+   what the backend returns, and that schema is the frontend's copy of the
+   contract. Responses are validated at runtime, so a backend change shows up
+   as a clear "unexpected response" error. Keep schemas in step with the
+   backend. E2E tests against the real backend (including the nightly run)
+   catch drift that the schemas and fakes don't.
 2. **Per feature, under `api/`:**
    - `queries.ts`: reads. Starts with `import "server-only"`. Named `get*` or
      `list*` (`getGreeting`). Called from Server Components.
-   - `actions.ts`: writes. Starts with `"use server"`. Named after the
-     backend endpoint's `operationId` (`createOrder`, `cancelOrder`). Every
-     export of a `"use server"` file is a public endpoint, so only real actions
-     go there.
-   - `mappers.ts`: API DTO to UI model. It validates at runtime and is the one
-     place to change if the backend's shape changes.
+   - `actions.ts`: writes. Starts with `"use server"`. Named after what the
+     backend endpoint does (`createOrder`, `cancelOrder`), so a function traces
+     to an endpoint. Every export of a `"use server"` file is a public
+     endpoint, so only real actions go there.
+   - `mappers.ts`: the response schema and the DTO-to-UI-model mapping. The
+     one place to change if the backend's shape changes.
 3. **The browser never calls the backend.** Reads run in Server Components,
    writes in Server Actions.
 4. **Shared plumbing** in `src/lib/api/`:
-   - `client.ts` builds the `openapi-fetch` client and sends
+   - `client.ts`: a small `fetch` wrapper. It joins `API_BASE_URL` (which may
+     include a path prefix) with the request path, and sends
      `X-Correlation-Id`: the incoming request's id if it looks valid,
-     otherwise a new UUID.
+     otherwise a new UUID. It parses JSON and turns failures into `ApiError`.
+     Responses come back as `unknown` until a mapper validates them.
    - `server.ts` (`getApiClient()`) is what feature code calls. It reads the
      incoming request headers and the validated `API_BASE_URL`.
-   - `errors.ts`: `unwrap()` turns HTTP errors (with or without an RFC 9457
-     `ProblemDetails` body) and network failures into `ApiError` (`status` is
-     0 when there was no response).
+   - `errors.ts`: `ApiError` for HTTP errors (with or without an RFC 9457
+     `ProblemDetails` body) and network failures (`status` is 0 when there
+     was no response).
 5. **Errors on the page.** A failed query throws. `src/app/error.tsx` shows
    `ErrorView`, a `role="alert"` message with no internal details and a
    "Try again" button that calls Next's `retry()`. `retry()` re-fetches;
@@ -104,19 +119,23 @@ Not built yet. Apply these the first time:
 - If the backend updates its read side asynchronously (CQRS projections), even
   `updateTag` cannot guarantee read-your-writes. Show the result returned by
   the action instead of re-reading immediately.
+- E2E tests that write need a test-data plan (see `docs/testing.md`).
 
 ## Adding a feature
 
 1. Create `src/features/<name>/` with `index.ts` exporting only the public surface.
-2. Add the endpoints to `openapi/openapi.json` (or `pnpm api:types:pull`), then
-   run `pnpm api:types`.
-3. Write `api/mappers.ts` and `api/queries.ts` (and `api/actions.ts` for writes),
-   following the conventions above.
+2. Write `api/mappers.ts`, a zod schema for the backend response plus the
+   mapping to a UI model. Copy a real response from the backend to check the
+   schema against it.
+3. Write `api/queries.ts` (and `api/actions.ts` for writes), following the
+   conventions above.
 4. Build components in `components/`, adding shadcn pieces to `components/ui` as needed.
 5. Compose them in a thin route under `src/app/`. Wrap request-time data in `<Suspense>`.
-6. Add MSW handlers to `tests/mocks/handlers.ts`, then unit, component and
-   integration tests, and an E2E spec if the route is user-facing.
-7. Add the route to `.pa11yci.js`.
+6. Add MSW handlers and fixtures to `tests/mocks/handlers.ts`. Then write
+   unit and component tests, and integration tests for each UI state
+   (success, empty, error).
+7. Add an E2E spec for the user-facing route that works against a real
+   backend; tag read-only tests `@smoke`. Add the route to `.pa11yci.js`.
 
 ## Client-side reads later
 

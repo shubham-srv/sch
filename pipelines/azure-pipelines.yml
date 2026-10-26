@@ -3,6 +3,10 @@
 # CI runs on pushes to main. Azure Repos Git ignores the YAML `pr:` trigger,
 # so pull requests are validated by a Build validation branch policy on main
 # that runs this same pipeline; the deploy stages skip PR runs.
+#
+# The app is built once (dist/app), tested as built against a real backend,
+# stored in Azure Artifacts as a Universal Package, and that package is what
+# gets deployed. Nightly checks live in nightly-e2e.yml.
 
 trigger:
   branches:
@@ -21,26 +25,26 @@ parameters:
 
 variables:
   # Service connection names must be known when the pipeline is compiled
-  # (resource authorization), which variable groups are not, so they live
+  # (resource authorization), which variable groups are not, so it lives
   # here. See docs/decisions.md.
-  - name: acrServiceConnection
-    value: "<acr-service-connection>" # TODO(owner)
   - name: armServiceConnection
     value: "<arm-service-connection>" # TODO(owner)
+  # Default for an optional variable-group key: empty means "only check that
+  # the greeting is not empty".
+  - name: expectedGreeting
+    value: ""
   # TODO(owner): create this variable group; keys are listed in
-  # docs/deployment-azure.md (acrName, resourceGroup, webAppName,
-  # stagingSlot, stagingApiBaseUrl, smokeExpectedGreeting).
+  # docs/deployment-azure.md.
   - group: web-frontend
-  - name: imageRepository
+  - name: packageName
     value: web
-  - name: webImage
-    value: $(acrName).azurecr.io/$(imageRepository):$(Build.BuildId)
+  # Universal Package version. Bump the 0.1 prefix for a new release line.
+  - name: packageVersion
+    value: 0.1.$(Build.BuildId)
   - name: CI
     value: "true"
   - name: HUSKY
     value: "0"
-  - name: DOCKER_BUILDKIT
-    value: "1"
 
 pool:
   name: ${{ parameters.agentPool }}
@@ -59,13 +63,6 @@ stages:
             displayName: ESLint
           - script: pnpm typecheck
             displayName: TypeScript
-
-          - script: |
-              pnpm api:types
-              git diff --exit-code -- src/lib/api/generated
-              test -z "$(git status --porcelain -- src/lib/api/generated)"
-            displayName: API contract drift check
-
           - script: pnpm test:cov
             displayName: Unit, component and integration tests
 
@@ -85,33 +82,32 @@ stages:
   - stage: Build
     dependsOn: Validate
     jobs:
-      - job: Image
+      - job: Package
         steps:
           - checkout: self
-          # Separate build and push: buildAndPush ignores `arguments`.
-          - task: Docker@2
-            displayName: Build image
+          - template: templates/setup-node-pnpm.yml
+          # next build + scripts/package-app.mjs -> dist/app
+          - script: pnpm build
+            displayName: Build and package the app
+          # For the test stages of this run.
+          - task: PublishPipelineArtifact@1
+            displayName: Publish app as pipeline artifact
             inputs:
-              command: build
-              containerRegistry: ${{ variables.acrServiceConnection }}
-              repository: $(imageRepository)
-              Dockerfile: $(Build.SourcesDirectory)/Dockerfile
-              buildContext: $(Build.SourcesDirectory)
-              tags: |
-                $(Build.BuildId)
-                $(Build.SourceVersion)
-              arguments: >-
-                --build-arg BUILD_ID=$(Build.BuildId)
-                --build-arg COMMIT_SHA=$(Build.SourceVersion)
-          - task: Docker@2
-            displayName: Push image to ACR
+              targetPath: dist/app
+              artifact: app
+          # The deployable record of this build. PR builds are not published.
+          - task: UniversalPackages@0
+            displayName: Publish app to Azure Artifacts
+            condition: and(succeeded(), ne(variables['Build.Reason'], 'PullRequest'))
             inputs:
-              command: push
-              containerRegistry: ${{ variables.acrServiceConnection }}
-              repository: $(imageRepository)
-              tags: |
-                $(Build.BuildId)
-                $(Build.SourceVersion)
+              command: publish
+              publishDirectory: dist/app
+              feedsToUsePublish: internal
+              vstsFeedPublish: $(artifactsFeed)
+              vstsFeedPackagePublish: $(packageName)
+              versionOption: custom
+              versionPublish: $(packageVersion)
+              packagePublishDescription: web $(Build.SourceVersion)
 
   - stage: E2E
     dependsOn: Build
@@ -122,37 +118,23 @@ stages:
           - template: templates/setup-node-pnpm.yml
             parameters:
               installPlaywrightChromium: true
-          - template: templates/e2e-stack.yml
+          - download: current
+            artifact: app
+          - template: templates/serve-app.yml
             parameters:
-              webImage: $(webImage)
-              projectName: web-e2e-$(Build.BuildId)-e2e
-              webHostPort: "3000"
-              mockApiHostPort: "4010"
+              appDirectory: $(Pipeline.Workspace)/app
+              apiBaseUrl: $(stagingApiBaseUrl)
+              port: "3000"
               steps:
                 - script: pnpm test:e2e
-                  displayName: Playwright
+                  displayName: Playwright against the packaged app
                   env:
-                    PLAYWRIGHT_BASE_URL: http://localhost:3000
-
-          - task: PublishTestResults@2
-            displayName: Publish Playwright results
-            condition: always()
-            inputs:
-              testResultsFormat: JUnit
-              testResultsFiles: reports/junit/playwright.xml
-              testRunTitle: Playwright E2E
-          - task: PublishPipelineArtifact@1
-            displayName: Publish Playwright report
-            condition: always()
-            inputs:
-              targetPath: playwright-report
-              artifact: playwright-report-$(System.JobAttempt)
-          - task: PublishPipelineArtifact@1
-            displayName: Publish traces and videos
-            condition: always()
-            inputs:
-              targetPath: test-results
-              artifact: playwright-traces-$(System.JobAttempt)
+                    PLAYWRIGHT_BASE_URL: http://127.0.0.1:3000
+                    E2E_EXPECTED_GREETING: $(expectedGreeting)
+          - template: templates/publish-playwright.yml
+            parameters:
+              title: Playwright E2E
+              artifactPrefix: playwright
 
   - stage: Accessibility
     dependsOn: Build
@@ -163,19 +145,19 @@ stages:
           - template: templates/setup-node-pnpm.yml
             parameters:
               installPlaywrightChromium: true
-          # Different host ports from E2E: both stages may share an agent host.
-          - template: templates/e2e-stack.yml
+          - download: current
+            artifact: app
+          # A different port from E2E: both stages may share an agent host.
+          - template: templates/serve-app.yml
             parameters:
-              webImage: $(webImage)
-              projectName: web-e2e-$(Build.BuildId)-a11y
-              webHostPort: "3001"
-              mockApiHostPort: "4011"
+              appDirectory: $(Pipeline.Workspace)/app
+              apiBaseUrl: $(stagingApiBaseUrl)
+              port: "3001"
               steps:
                 - script: pnpm a11y:ci
                   displayName: pa11y-ci
                   env:
-                    A11Y_BASE_URL: http://localhost:3001
-
+                    A11Y_BASE_URL: http://127.0.0.1:3001
           - task: PublishPipelineArtifact@1
             displayName: Publish a11y report
             condition: always()
@@ -195,33 +177,36 @@ stages:
           runOnce:
             deploy:
               steps:
+                # Deploy what was stored in Azure Artifacts, not the
+                # pipeline artifact.
+                - download: none
                 - checkout: self
+                - task: UniversalPackages@0
+                  displayName: Download app from Azure Artifacts
+                  inputs:
+                    command: download
+                    downloadDirectory: $(Pipeline.Workspace)/release
+                    feedsToUse: internal
+                    vstsFeed: $(artifactsFeed)
+                    vstsFeedPackage: $(packageName)
+                    vstsPackageVersion: $(packageVersion)
                 - template: templates/deploy-webapp.yml
                   parameters:
-                    webImage: $(webImage)
+                    package: $(Pipeline.Workspace)/release
                     slot: $(stagingSlot)
                     apiBaseUrl: $(stagingApiBaseUrl)
                 - template: templates/setup-node-pnpm.yml
                   parameters:
                     installPlaywrightChromium: true
-                - script: pnpm test:e2e --grep @smoke
-                  displayName: Smoke tests against staging
+                - script: pnpm test:e2e
+                  displayName: Playwright against staging
                   env:
-                    PLAYWRIGHT_BASE_URL: $(deployContainer.AppServiceApplicationUrl)
-                    SMOKE_EXPECTED_GREETING: $(smokeExpectedGreeting)
-                - task: PublishTestResults@2
-                  displayName: Publish smoke results
-                  condition: always()
-                  inputs:
-                    testResultsFormat: JUnit
-                    testResultsFiles: reports/junit/playwright.xml
-                    testRunTitle: Staging smoke
-                - task: PublishPipelineArtifact@1
-                  displayName: Publish smoke report
-                  condition: always()
-                  inputs:
-                    targetPath: playwright-report
-                    artifact: smoke-report-$(System.JobAttempt)
+                    PLAYWRIGHT_BASE_URL: $(deployApp.AppServiceApplicationUrl)
+                    E2E_EXPECTED_GREETING: $(expectedGreeting)
+                - template: templates/publish-playwright.yml
+                  parameters:
+                    title: Staging E2E
+                    artifactPrefix: staging
 
   - stage: Deploy_Production
     dependsOn: Deploy_Staging
@@ -240,6 +225,7 @@ stages:
             deploy:
               steps:
                 - download: none
+                - checkout: self
                 - task: AzureAppServiceManage@0
                   displayName: Swap staging into production
                   inputs:
@@ -249,3 +235,19 @@ stages:
                     ResourceGroupName: $(resourceGroup)
                     SourceSlot: $(stagingSlot)
                     SwapWithProduction: true
+                - template: templates/wait-for-health.yml
+                  parameters:
+                    url: $(productionUrl)
+                - template: templates/setup-node-pnpm.yml
+                  parameters:
+                    installPlaywrightChromium: true
+                # Production gets only the read-only @smoke tests.
+                - script: pnpm test:e2e --grep @smoke
+                  displayName: Smoke tests against production
+                  env:
+                    PLAYWRIGHT_BASE_URL: $(productionUrl)
+                    E2E_EXPECTED_GREETING: $(expectedGreeting)
+                - template: templates/publish-playwright.yml
+                  parameters:
+                    title: Production smoke
+                    artifactPrefix: production

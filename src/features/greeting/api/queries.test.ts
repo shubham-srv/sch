@@ -6,32 +6,24 @@ import { getGreeting } from "./queries";
 
 vi.mock("@/lib/api/server", () => ({ getApiClient: vi.fn() }));
 
-function stubClient(result: Promise<unknown>) {
-  const GET = vi.fn().mockReturnValue(result);
-  vi.mocked(getApiClient).mockResolvedValue({ GET } as unknown as ApiClient);
-  return GET;
+function stubClient(get: ApiClient["get"]) {
+  const client = { get: vi.fn(get), request: vi.fn() };
+  vi.mocked(getApiClient).mockResolvedValue(client);
+  return client;
 }
 
 describe("getGreeting", () => {
   it("requests /greeting and maps the response", async () => {
-    const GET = stubClient(
-      Promise.resolve({
-        data: { message: "hello world" },
-        response: new Response(null, { status: 200 }),
-      }),
-    );
+    const client = stubClient(async () => ({ message: "hello world" }));
 
     await expect(getGreeting()).resolves.toEqual({ message: "hello world" });
-    expect(GET).toHaveBeenCalledWith("/greeting");
+    expect(client.get).toHaveBeenCalledWith("/greeting");
   });
 
   it("throws ApiError when the backend call fails", async () => {
-    stubClient(
-      Promise.resolve({
-        error: { title: "Internal Server Error", status: 500 },
-        response: new Response(null, { status: 500 }),
-      }),
-    );
+    stubClient(async () => {
+      throw new ApiError({ status: 500, title: "Internal Server Error" });
+    });
 
     await expect(getGreeting()).rejects.toBeInstanceOf(ApiError);
   });

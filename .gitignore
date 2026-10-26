@@ -9,6 +9,7 @@ next-env.d.ts
 
 # test and tool output
 /coverage
+/dist
 /reports
 /playwright-report
 /test-results

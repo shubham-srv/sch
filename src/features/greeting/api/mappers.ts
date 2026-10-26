@@ -1,14 +1,12 @@
 import { z } from "zod";
 import type { Greeting } from "@/features/greeting/types";
-import type { components } from "@/lib/api/generated/schema";
 
-type GreetingDto = components["schemas"]["Greeting"];
-
-// Checked at runtime: the deployed backend can drift from the committed
-// contract. `satisfies` keeps this schema in step with the generated type.
+// What GET /greeting returns. This schema is the frontend's copy of the
+// backend contract (there is no OpenAPI): keep it in step with the backend.
+// TODO(owner): confirm the response shape with the backend owner.
 const greetingDtoSchema = z.object({
   message: z.string(),
-}) satisfies z.ZodType<GreetingDto>;
+});
 
 /** The single place to adapt if the backend's greeting shape changes. */
 export function toGreeting(dto: unknown): Greeting {

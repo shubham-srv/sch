@@ -1,7 +1,12 @@
-import type { components } from "@/lib/api/generated/schema";
-
 /** RFC 9457 problem details, as returned by ASP.NET Core. */
-export type ProblemDetails = components["schemas"]["ProblemDetails"];
+export interface ProblemDetails {
+  type?: string;
+  title?: string;
+  status?: number;
+  detail?: string;
+  instance?: string;
+  [extension: string]: unknown;
+}
 
 interface ApiErrorInit {
   status: number;
@@ -43,6 +48,7 @@ export function isProblemDetails(body: unknown): body is ProblemDetails {
   );
 }
 
+/** An HTTP error response, with or without a ProblemDetails body. */
 export function apiErrorFromResponse(
   response: Response,
   body: unknown,
@@ -60,6 +66,7 @@ export function apiErrorFromResponse(
   return new ApiError({ status: response.status, title: fallbackTitle });
 }
 
+/** A request that never produced a usable response (network failure). */
 export function apiErrorFromRequestFailure(cause: unknown): ApiError {
   return new ApiError({
     status: 0,
@@ -67,27 +74,4 @@ export function apiErrorFromRequestFailure(cause: unknown): ApiError {
     detail: cause instanceof Error ? cause.message : undefined,
     cause,
   });
-}
-
-interface FetchResult<T> {
-  data?: T;
-  error?: unknown;
-  response: Response;
-}
-
-/**
- * Awaits an openapi-fetch call and returns its data. Throws ApiError for an
- * HTTP error status and for a request that never got a usable response.
- */
-export async function unwrap<T>(call: Promise<FetchResult<T>>): Promise<T> {
-  let result: FetchResult<T>;
-  try {
-    result = await call;
-  } catch (cause) {
-    throw apiErrorFromRequestFailure(cause);
-  }
-  if (!result.response.ok) {
-    throw apiErrorFromResponse(result.response, result.error);
-  }
-  return result.data as T;
 }
