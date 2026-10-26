@@ -1,13 +1,10 @@
 # Testing
 
-New to testing? [dummy-guide.md](dummy-guide.md) explains the ideas and
-walks through each test in this repo. This page is the reference.
-
 ## Layers
 
 | Layer         | Purpose                                                                             | Location                                   | Runs in              | Backend                             |
 | ------------- | ----------------------------------------------------------------------------------- | ------------------------------------------ | -------------------- | ----------------------------------- |
-| Unit          | Pure logic: mappers, error handling, env validation, the API client                 | `src/**/*.test.ts`                         | Vitest, node         | none, or a stubbed `fetch` / client |
+| Unit          | Pure logic: mappers, error handling, env validation, the API client                 | `src/**/*.test.ts`, next to the code       | Vitest, node         | none, or a stubbed `fetch` / client |
 | Component     | One component's rendering and interaction                                           | `src/**/*.test.tsx`, next to the component | Vitest, jsdom        | none                                |
 | Integration   | Real query function, real API client and real component together, in every UI state | `tests/integration/**/*.int.test.{ts,tsx}` | Vitest, jsdom        | **fake**, through MSW               |
 | E2E           | The built app in a real browser                                                     | `e2e/tests/*.spec.ts`                      | Playwright, Chromium | **real**                            |
@@ -15,11 +12,11 @@ walks through each test in this repo. This page is the reference.
 
 Each Vitest layer is a `projects` entry in `vitest.config.mts`, with its own
 environment and include pattern: `pnpm test:unit`, `pnpm test:component`,
-`pnpm test:int`, or `pnpm test` for all three.
+`pnpm test:int`, or `pnpm test` for all three. The file extension decides the
+environment: `.test.ts` runs in node, `.test.tsx` in jsdom.
 
-Async Server Components (such as the greeting in `src/app/page.tsx`) are not
-rendered in Vitest; Playwright covers them. Keep their logic in plain
-functions that Vitest can test.
+Async Server Components are not rendered in Vitest; Playwright covers them.
+Keep their logic in plain functions that Vitest can test.
 
 ## Fake backend for Vitest, real backend for E2E
 
@@ -37,7 +34,7 @@ handler for one test with `server.use(...)`; it is reset after each test.
 
 ```ts
 server.use(
-  http.get("*/greeting", () =>
+  http.get("*/orders", () =>
     HttpResponse.json(
       { title: "Internal Server Error", status: 500 },
       { status: 500 },
@@ -61,12 +58,13 @@ refresh them when the backend changes, so the fake does not drift.
 - `tests/utils/next-headers.ts` and `tests/utils/next-server.ts`: mocks for
   `next/headers` and `next/server` (`connection()`). Use them with
   `vi.mock("next/headers", () => import("../utils/next-headers"))`.
+- Unit tests of a query stub the client with `vi.mock("@/lib/api/server", ...)`.
 
 ## E2E
 
-The greeting is fetched by the Next.js server, not the browser, so a browser
-test cannot intercept that call. The server under test must be configured
-with `API_BASE_URL` pointing at a reachable backend.
+Pages fetch backend data on the Next.js server, not in the browser, so a
+browser test cannot intercept those calls. The server under test must be
+configured with `API_BASE_URL` pointing at a reachable backend.
 
 | Where                             | What runs                                     | App under test                                                                            | Backend                                                 |
 | --------------------------------- | --------------------------------------------- | ----------------------------------------------------------------------------------------- | ------------------------------------------------------- |
@@ -82,12 +80,12 @@ starts nothing.
 
 Rules for E2E tests, because they run against real, shared data:
 
-- **Do not assume specific data.** The greeting's exact text is only checked
-  when `E2E_EXPECTED_GREETING` is set.
+- **Do not assume specific data.** When a test must check an exact value, read
+  it from an environment variable (for example `E2E_EXPECTED_<NAME>`) instead
+  of hard-coding what one backend returns.
 - **Tag read-only tests `@smoke`.** Only those run against production.
-- **Writes (from later features) need a test-data plan:** create what the test
-  needs and clean it up, or use a dedicated test account. Never write in
-  production.
+- **Tests that write need a test-data plan:** create what the test needs and
+  clean it up, or use a dedicated test account. Never write in production.
 
 Use page objects (`e2e/pages/`) and role or label locators; never CSS selectors.
 
@@ -95,7 +93,8 @@ Use page objects (`e2e/pages/`) and role or label locators; never CSS selectors.
 
 `pnpm a11y` checks the URLs in `.pa11yci.js` against `A11Y_BASE_URL` (default
 `http://localhost:3000`, so start the app first). Any error fails the run.
-Every entry in its `ignore` list needs a comment saying why.
+Every entry in its `ignore` list needs a comment saying why. Add every new
+route to `.pa11yci.js`.
 
 ## Coverage
 
@@ -103,8 +102,8 @@ Every entry in its `ignore` list needs a comment saying why.
 `coverage/`, and a JUnit file to `reports/junit/vitest.xml`. `src/app`
 (covered by Playwright) and `src/components/ui` (vendored) are excluded.
 
-The thresholds are placeholders to raise as the codebase grows: **80% lines,
-functions and statements; 75% branches**. The run fails below them.
+The thresholds are **80% lines, functions and statements; 75% branches**.
+The run fails below them.
 
 ## Debugging a failed Playwright run in the pipeline
 

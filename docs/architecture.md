@@ -2,19 +2,19 @@
 
 ## Where code goes
 
-| Folder                   | Contents                                                                                                                                                          | Exists yet |
-| ------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------- |
-| `src/app/`               | Routes only. Pages compose feature components and call feature functions; no business logic. Also `error.tsx`, `global-error.tsx`, `not-found.tsx`, `api/health`. | yes        |
-| `src/features/<name>/`   | Everything one feature owns: `components/`, `api/` (`queries.ts`, `actions.ts`, `mappers.ts`), `types.ts`, and `index.ts`, its public surface.                    | `greeting` |
-| `src/components/ui/`     | shadcn/ui components, treated as vendored code: no business logic, no tests. Add with `pnpm dlx shadcn@latest add <name>`.                                        | `button`   |
-| `src/components/`        | Shared app components used by several features or routes (`error-view.tsx`).                                                                                      | yes        |
-| `src/components/layout/` | Shared layout pieces (header, footer) once the root layout outgrows inline markup.                                                                                | no         |
-| `src/hooks/`             | Shared client hooks.                                                                                                                                              | no         |
-| `src/lib/`               | Framework-agnostic plumbing: `env.server.ts`, `utils.ts` (`cn`).                                                                                                  | yes        |
-| `src/lib/api/`           | Backend client: `client.ts`, `server.ts`, `errors.ts`.                                                                                                            | yes        |
-| `tests/`                 | Vitest setup, the MSW fake backend, test utilities, integration tests.                                                                                            | yes        |
-| `e2e/`                   | Playwright specs and page objects. Never imported by app code.                                                                                                    | yes        |
-| `scripts/`               | Build helpers: `package-app.mjs` assembles `dist/app`.                                                                                                            | yes        |
+| Folder                   | Contents                                                                                                                                                                                                                                                                                                                                             |
+| ------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `src/app/`               | Routes only. Pages compose feature components and call feature functions; no business logic. Pages that share an app shell (sidebar, topbar) sit in a route group such as `(dashboard)/`, which has its own `layout.tsx` and adds nothing to the URL. Also `error.tsx`, `global-error.tsx`, `not-found.tsx` and route handlers such as `api/health`. |
+| `src/features/<name>/`   | Everything one data domain owns: `components/`, `api/` (`queries.ts`, `actions.ts`, `mappers.ts`), `types.ts`, and `index.ts`, its public surface. Group features by data domain, not by page; a page composes several features, and several pages can reuse one.                                                                                    |
+| `src/components/ui/`     | shadcn/ui components, treated as vendored code: no business logic, no tests. Add with `pnpm dlx shadcn@latest add <name>`.                                                                                                                                                                                                                           |
+| `src/components/`        | Shared components used by several features or routes, such as cards and chart wrappers. They take data as props and never fetch.                                                                                                                                                                                                                     |
+| `src/components/layout/` | App-shell pieces: sidebar, topbar, footer.                                                                                                                                                                                                                                                                                                           |
+| `src/hooks/`             | Shared client hooks.                                                                                                                                                                                                                                                                                                                                 |
+| `src/lib/`               | Framework-agnostic plumbing: `env.server.ts` (runtime config), `utils.ts` (`cn`).                                                                                                                                                                                                                                                                    |
+| `src/lib/api/`           | Backend client: `client.ts`, `server.ts`, `errors.ts`.                                                                                                                                                                                                                                                                                               |
+| `tests/`                 | Vitest setup, the MSW fake backend, test utilities, integration tests.                                                                                                                                                                                                                                                                               |
+| `e2e/`                   | Playwright specs and page objects. Never imported by app code.                                                                                                                                                                                                                                                                                       |
+| `scripts/`               | Build helpers: `package-app.mjs` assembles `dist/app`.                                                                                                                                                                                                                                                                                               |
 
 ## Import rules
 
@@ -36,23 +36,24 @@ new feature is covered automatically.
 
 ## Server and client
 
-- Every file that touches the backend, secrets or (from Version 2) the session
-  starts with `import "server-only"`: `env.server.ts`, `lib/api/client.ts`,
-  `lib/api/server.ts`, feature `queries.ts`.
+- Every file that touches the backend, secrets or the user session starts with
+  `import "server-only"`: `env.server.ts`, `lib/api/client.ts`,
+  `lib/api/server.ts`, each feature's `queries.ts`.
 - `"use client"` only where interactivity needs it, as low in the tree as
-  possible. Today that is only `error.tsx` and `global-error.tsx` (error
-  boundaries must be client components).
+  possible. Error boundaries (`error.tsx`, `global-error.tsx`) must be client
+  components.
 - Async server components hold no logic worth unit testing. Logic lives in
   plain functions (mappers, error handling) that Vitest covers; the async
   components are exercised by Playwright.
 
 ## Rendering, config and build output
 
-- **Cache Components** is on (the Next.js 16.4 default, and mandatory in the
-  next major). Each route has a prerendered static shell. Request-time data
-  streams in inside `<Suspense>`. `src/app/page.tsx` wraps the greeting in
-  `<Suspense>`, and `getApiClient()` calls `connection()`, so every backend call
-  happens per request and never during the build.
+- **Cache Components** is on. Each route has a prerendered static shell.
+  Request-time data streams in inside `<Suspense>`. Give each data-backed
+  section of a page its own `<Suspense>` with a skeleton fallback, so sections
+  appear independently and a slow endpoint doesn't hold up the rest.
+  `getApiClient()` calls `connection()`, so every backend call happens per
+  request and never during the build.
 - **One build for every environment.** Runtime config comes from server
   environment variables (Web App app settings), read through `getServerEnv()`
   in `src/lib/env.server.ts`. It validates with zod **on first call**, not at
@@ -63,23 +64,21 @@ new feature is covered automatically.
   `.next/static` and `public/` into `dist/app`. `dist/app` is self-contained:
   `node dist/app/server.js` runs it with no install. This folder is what gets
   tested, stored in Azure Artifacts and deployed. `pnpm start` runs it locally.
-- **Security headers** are set for all routes in `next.config.ts`. A
-  nonce-based Content-Security-Policy is a planned follow-up.
-- **Observability:** add `src/instrumentation.ts` (Next.js `register()` hook)
-  when Application Insights or OpenTelemetry is introduced. Not built yet.
+- **Security headers** are set for all routes in `next.config.ts`.
+- **Observability** (Application Insights, OpenTelemetry) hooks into
+  `src/instrumentation.ts`, the Next.js `register()` hook.
 
 ## API conventions
 
-1. **The contract lives in zod schemas.** There is no OpenAPI document or
-   generated client. Each feature's `api/mappers.ts` holds a zod schema for
-   what the backend returns, and that schema is the frontend's copy of the
-   contract. Responses are validated at runtime, so a backend change shows up
-   as a clear "unexpected response" error. Keep schemas in step with the
-   backend. E2E tests against the real backend (including the nightly run)
-   catch drift that the schemas and fakes don't.
+1. **The contract lives in zod schemas.** There is no generated client. Each
+   feature's `api/mappers.ts` holds a zod schema for what the backend returns,
+   and that schema is the frontend's copy of the contract. Responses are
+   validated at runtime, so a backend change shows up as a clear "unexpected
+   response" error. Keep schemas in step with the backend; E2E tests against
+   the real backend (including the nightly run) catch drift.
 2. **Per feature, under `api/`:**
    - `queries.ts`: reads. Starts with `import "server-only"`. Named `get*` or
-     `list*` (`getGreeting`). Called from Server Components.
+     `list*`. Called from Server Components.
    - `actions.ts`: writes. Starts with `"use server"`. Named after what the
      backend endpoint does (`createOrder`, `cancelOrder`), so a function traces
      to an endpoint. Every export of a `"use server"` file is a public
@@ -103,10 +102,12 @@ new feature is covered automatically.
    `ErrorView`, a `role="alert"` message with no internal details and a
    "Try again" button that calls Next's `retry()`. `retry()` re-fetches;
    `reset()` would only re-render.
+6. **Filters and sorting** live in URL search params, validated with zod
+   inside the feature. Client components only update the URL; the server
+   re-fetches. Filtered views can then be bookmarked and shared, and the back
+   button works.
 
-### When a feature first has writes
-
-Not built yet. Apply these the first time:
+### Writes
 
 - Validate input with zod inside the action.
 - Return `ActionResult<T>`: `{ ok: true, data }` or
@@ -129,17 +130,19 @@ Not built yet. Apply these the first time:
    schema against it.
 3. Write `api/queries.ts` (and `api/actions.ts` for writes), following the
    conventions above.
-4. Build components in `components/`, adding shadcn pieces to `components/ui` as needed.
-5. Compose them in a thin route under `src/app/`. Wrap request-time data in `<Suspense>`.
+4. Build components in `components/`. Put reusable, data-free pieces in
+   `src/components/`, and add shadcn pieces to `components/ui` as needed.
+5. Compose them in a thin route under `src/app/`, with each data-backed
+   section in its own `<Suspense>`.
 6. Add MSW handlers and fixtures to `tests/mocks/handlers.ts`. Then write
    unit and component tests, and integration tests for each UI state
    (success, empty, error).
 7. Add an E2E spec for the user-facing route that works against a real
    backend; tag read-only tests `@smoke`. Add the route to `.pa11yci.js`.
 
-## Client-side reads later
+## Client-side reads
 
-If a client component ever needs to fetch (polling, infinite scroll), do not
-call the backend from the browser. Add a Route Handler that proxies **GET
-only**, to an allow-list of backend paths, and attaches the user's token on the
-server (Version 2). Writes stay as Server Actions.
+If a client component needs to fetch (polling, infinite scroll), do not call
+the backend from the browser. Add a Route Handler that proxies **GET only**,
+to an allow-list of backend paths, and attaches the user's token on the
+server. Writes stay as Server Actions.
