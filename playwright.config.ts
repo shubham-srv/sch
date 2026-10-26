@@ -2,8 +2,8 @@ import { existsSync } from "node:fs";
 import { defineConfig, devices } from "@playwright/test";
 
 // E2E tests always run against a real backend (docs/testing.md). Locally,
-// .env.local supplies API_BASE_URL (your backend container) and, optionally,
-// E2E_EXPECTED_GREETING.
+// .env.local supplies API_BASE_URL (your backend container) and any optional
+// E2E_EXPECTED_* values the tests read.
 if (existsSync(".env.local")) process.loadEnvFile(".env.local");
 
 const isCI = !!process.env.CI;

@@ -9,9 +9,9 @@ describe("apiErrorFromResponse", () => {
   it("turns a ProblemDetails body into an ApiError", () => {
     const problem = {
       type: "https://example.com/problems/not-found",
-      title: "Greeting not found",
+      title: "Resource not found",
       status: 404,
-      detail: "There is no greeting today.",
+      detail: "No item exists with id 42.",
     };
 
     const error = apiErrorFromResponse(
@@ -22,8 +22,8 @@ describe("apiErrorFromResponse", () => {
     expect(error).toBeInstanceOf(ApiError);
     expect(error).toMatchObject({
       status: 404,
-      title: "Greeting not found",
-      detail: "There is no greeting today.",
+      title: "Resource not found",
+      detail: "No item exists with id 42.",
       type: problem.type,
       problem,
     });

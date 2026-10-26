@@ -14,20 +14,20 @@ describe("createApiClient", () => {
       fetch,
     });
 
-    await client.get("/greeting");
+    await client.get("/items");
 
     expect(fetch.mock.calls[0]?.[0]).toBe(
-      "https://backend.example.com/api/greeting",
+      "https://backend.example.com/api/items",
     );
   });
 
   it("resolves to the parsed JSON body", async () => {
     const client = createApiClient({
       baseUrl: "https://backend.example.com",
-      fetch: stubFetch(Response.json({ message: "hi" })),
+      fetch: stubFetch(Response.json({ id: 42 })),
     });
 
-    await expect(client.get("/greeting")).resolves.toEqual({ message: "hi" });
+    await expect(client.get("/items")).resolves.toEqual({ id: 42 });
   });
 
   it("resolves to undefined for an empty body", async () => {
@@ -36,7 +36,7 @@ describe("createApiClient", () => {
       fetch: stubFetch(new Response(null, { status: 204 })),
     });
 
-    await expect(client.get("/greeting")).resolves.toBeUndefined();
+    await expect(client.get("/items")).resolves.toBeUndefined();
   });
 
   it("rejects with ApiError when the error body is not JSON", async () => {
@@ -47,7 +47,7 @@ describe("createApiClient", () => {
       ),
     });
 
-    const error = await client.get("/greeting").catch((e: unknown) => e);
+    const error = await client.get("/items").catch((e: unknown) => e);
 
     expect(error).toBeInstanceOf(ApiError);
     expect(error).toMatchObject({ status: 502 });
@@ -61,7 +61,7 @@ describe("createApiClient", () => {
       fetch,
     });
 
-    await client.get("/greeting");
+    await client.get("/items");
 
     const headers = new Headers(fetch.mock.calls[0]?.[1]?.headers);
     expect(headers.get("X-Correlation-Id")).not.toBe("not valid\nid");
