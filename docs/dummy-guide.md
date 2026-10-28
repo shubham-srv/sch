@@ -190,27 +190,33 @@ app, so browsers never contact Google.
 
 ### Keeping the code tidy
 
-**pnpm** (package manager). It installs the libraries listed in `package.json`
-into `node_modules`, at the exact versions recorded in `pnpm-lock.yaml`.
+**Yarn** (package manager). It installs the libraries listed in `package.json`
+into `node_modules`, at the exact versions recorded in `yarn.lock`. Yarn
+itself comes from Corepack, which ships with Node: after `corepack enable`,
+every `yarn` command in this folder uses the version pinned in `package.json`
+(`packageManager`).
 
-- _Why not npm:_ pnpm refuses to run libraries' install scripts unless
-  they're on an allow list, which is a common way for malicious packages to
-  attack. It won't install a version published less than 24 hours ago, which
-  avoids pulling in a hijacked release before anyone notices. It is fast and
-  saves disk space, and its shell lets the same scripts run on Windows and Linux.
-- _One setting to know:_ `nodeLinker: hoisted` makes `node_modules` flat,
-  like npm's. The deployed app needs real folders, not symlinks. On its own,
-  a flat layout would let you import a package that isn't in `package.json`,
-  so an ESLint rule (`import/no-extraneous-dependencies`) forbids that.
+- _Why Yarn:_ the client's other application uses Yarn 4.14.1, so both share
+  one tool. Compared with plain npm, Yarn doesn't run libraries' install
+  scripts, which are a common way for malicious packages to attack. It won't
+  install a version published less than a day ago, which avoids pulling in a
+  hijacked release before anyone notices. Its built-in shell lets the same
+  scripts run on Windows and Linux.
+- _One setting to know:_ `nodeLinker: node-modules` (in `.yarnrc.yml`) makes
+  Yarn create a normal `node_modules` folder. Yarn's default (Plug'n'Play)
+  works without one, but Next.js's bundler doesn't support that, and the
+  deployed app needs real folders. On its own, a flat `node_modules` would
+  let you import a package that isn't in `package.json`, so an ESLint rule
+  (`import/no-extraneous-dependencies`) forbids that.
 
 **ESLint** (linter). It reads the code and flags bugs, risky patterns and
 breaches of our rules: import boundaries, accessibility in JSX, React hook
-rules, undeclared dependencies. `pnpm lint` runs it; any warning fails.
+rules, undeclared dependencies. `yarn lint` runs it; any warning fails.
 
 **Prettier** (formatter). It rewrites code into one consistent style, so
 nobody argues about formatting and diffs show only real changes. Its Tailwind
-plugin also sorts class names. `pnpm format` fixes formatting;
-`pnpm format:check` only reports it.
+plugin also sorts class names. `yarn format` fixes formatting;
+`yarn format:check` only reports it.
 
 **Husky + lint-staged** (git hook). Before every `git commit`, Husky runs
 lint-staged, which runs ESLint and Prettier on just the files you're
@@ -320,12 +326,12 @@ real backend is how E2E proves it all fits together.
 
 | Command               | Runs          |
 | --------------------- | ------------- |
-| `pnpm test:unit`      | unit          |
-| `pnpm test:component` | component     |
-| `pnpm test:int`       | integration   |
-| `pnpm test`           | all three     |
-| `pnpm test:e2e`       | E2E           |
-| `pnpm a11y`           | accessibility |
+| `yarn test:unit`      | unit          |
+| `yarn test:component` | component     |
+| `yarn test:int`       | integration   |
+| `yarn test`           | all three     |
+| `yarn test:e2e`       | E2E           |
+| `yarn a11y`           | accessibility |
 
 ### 4.4 Unit tests: `src/features/greeting/api/mappers.test.ts`
 
@@ -487,7 +493,7 @@ running app, which calls a **real backend**.
 **How a run starts.** `playwright.config.ts` decides:
 
 - **No `PLAYWRIGHT_BASE_URL` set (your machine):** Playwright reads
-  `.env.local`, then runs `pnpm build && pnpm start` to build and start the
+  `.env.local`, then runs `yarn build && yarn start` to build and start the
   production app. The app calls the backend at `API_BASE_URL`. If neither
   variable is set, Playwright stops straight away and says so.
 - **`PLAYWRIGHT_BASE_URL` set (the pipeline, or testing a deployed site):**
@@ -530,7 +536,7 @@ test(
 - **Checking it isn't the error page.** The error page also has an `h1`, so the
   test explicitly asserts that "Something went wrong" is absent.
 - **`@smoke`** marks the test as read-only and safe to run against production.
-  `pnpm test:e2e --grep @smoke` runs only those.
+  `yarn test:e2e --grep @smoke` runs only those.
 
 `e2e/tests/health.spec.ts` uses Playwright's `request` helper, which calls a
 URL directly with no browser. It checks that `/api/health` answers and that
@@ -538,17 +544,17 @@ the security headers are present.
 
 **Watching and debugging E2E tests:**
 
-- `pnpm test:e2e:ui` opens Playwright's UI mode. You can pick a test, watch
+- `yarn test:e2e:ui` opens Playwright's UI mode. You can pick a test, watch
   it run, and step back through each action.
-- After a run, `pnpm exec playwright show-report` opens the HTML report.
+- After a run, `yarn playwright show-report` opens the HTML report.
 - In the pipeline, a failing test is retried, and the retry records a _trace_:
   a recording of every action, network call and DOM snapshot. Open it with
-  `pnpm exec playwright show-trace <trace.zip>`.
+  `yarn playwright show-trace <trace.zip>`.
 
 ### 4.8 Accessibility checks: pa11y
 
 Accessibility means everyone can use the site, including people using screen
-readers, keyboards only, or high-contrast settings. `pnpm a11y` loads each URL
+readers, keyboards only, or high-contrast settings. `yarn a11y` loads each URL
 listed in `.pa11yci.js` in Chromium and runs two rule engines (axe and
 HTML_CodeSniffer) against the **WCAG 2 AA** standard. Any error fails the run.
 A failure looks like this:
@@ -567,10 +573,10 @@ everything, and check you can always see where the focus is.
 ### 4.9 Running tests and reading results
 
 ```sh
-pnpm test                         # all Vitest layers once
-pnpm exec vitest                  # watch mode: re-runs affected tests on every save
-pnpm exec vitest mappers          # only test files whose path contains "mappers"
-pnpm test:cov                     # with coverage; open coverage/index.html
+yarn test                         # all Vitest layers once
+yarn vitest                       # watch mode: re-runs affected tests on every save
+yarn vitest mappers               # only test files whose path contains "mappers"
+yarn test:cov                     # with coverage; open coverage/index.html
 ```
 
 A passing Vitest run ends like this:
@@ -659,12 +665,12 @@ and the fixture together. The nightly E2E run will tell you if they drift.
 ## 5. Quality gates before code reaches main
 
 1. **While you work:** the editor shows TypeScript and ESLint errors;
-   `pnpm exec vitest` re-runs tests on every save.
+   `yarn vitest` re-runs tests on every save.
 2. **On `git commit`:** Husky runs lint-staged, which runs ESLint and Prettier
    on the files you're committing. Fix what it reports, then commit again.
-3. **Before you push:** `pnpm verify` runs what the pipeline's first stage
+3. **Before you push:** `yarn verify` runs what the pipeline's first stage
    runs (format check, lint, typecheck, all Vitest tests), plus the build.
-   Run `pnpm test:e2e` too if you changed a page.
+   Run `yarn test:e2e` too if you changed a page.
 4. **On the pull request:** the pipeline runs everything again, including E2E
    and accessibility. A branch policy blocks merging until it passes.
    `.azuredevops/pull_request_template.md` adds a short checklist to every PR.
@@ -679,7 +685,7 @@ branch policy) and every merge to `main`:
 | Stage                 | What happens                                                                                                                                                                                        | On PRs?             |
 | --------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------- |
 | **Validate**          | Install, Prettier check, ESLint, TypeScript, all Vitest tests with coverage. Results appear in the run's **Tests** and **Code Coverage** tabs                                                       | yes                 |
-| **Build**             | `pnpm build` creates `dist/app`, kept as a pipeline artifact. On `main` it is also published to Azure Artifacts as package `web`, version `0.1.<run number>`                                        | yes (not published) |
+| **Build**             | `yarn build` creates `dist/app`, kept as a pipeline artifact. On `main` it is also published to Azure Artifacts as package `web`, version `0.1.<run number>`                                        | yes (not published) |
 | **E2E**               | Starts `dist/app` on the agent, pointed at the staging backend, and runs every Playwright test                                                                                                      | yes                 |
 | **Accessibility**     | Same app, separate job; runs pa11y                                                                                                                                                                  | yes                 |
 | **Deploy_Staging**    | Downloads the package from Azure Artifacts, deploys it to the Web App's staging slot, waits for `/api/health`, runs every Playwright test against staging                                           | no                  |
@@ -694,7 +700,7 @@ The steps shared by several stages live in `pipelines/templates/`:
 
 | Template                 | Does                                                  |
 | ------------------------ | ----------------------------------------------------- |
-| `setup-node-pnpm.yml`    | Node, pnpm, a cached install, and optionally Chromium |
+| `setup-node-yarn.yml`    | Node, Yarn, a cached install, and optionally Chromium |
 | `serve-app.yml`          | Starts and stops `dist/app` on the agent              |
 | `deploy-webapp.yml`      | Deploys and waits for health                          |
 | `wait-for-health.yml`    | Polls `/api/health` until it answers                  |
@@ -712,10 +718,10 @@ The same build runs everywhere; only configuration changes.
 
 |                          | Your machine                              | Pipeline (E2E stage)          | Staging                            | Production                                     |
 | ------------------------ | ----------------------------------------- | ----------------------------- | ---------------------------------- | ---------------------------------------------- |
-| App                      | `pnpm dev` or `pnpm start`                | `dist/app` on the agent       | Web App staging slot               | Web App production slot                        |
+| App                      | `yarn dev` or `yarn start`                | `dist/app` on the agent       | Web App staging slot               | Web App production slot                        |
 | Backend (`API_BASE_URL`) | your backend container, from `.env.local` | staging backend               | staging backend                    | production backend                             |
 | Set in                   | `.env.local`                              | variable group `web-frontend` | app settings (set by the pipeline) | app settings (set by hand, sticky to the slot) |
-| E2E                      | `pnpm test:e2e`                           | every test                    | every test                         | `@smoke` only                                  |
+| E2E                      | `yarn test:e2e`                           | every test                    | every test                         | `@smoke` only                                  |
 
 Configuration is read when the server starts, not when the app is built.
 That's why one build can serve every environment, and why `NEXT_PUBLIC_*`
@@ -734,8 +740,8 @@ Key Vault, never from the repo.
 | Playwright says "E2E needs a running backend"                      | Set `API_BASE_URL` (in `.env.local`), or set `PLAYWRIGHT_BASE_URL` to test a deployed site                                                                     |
 | E2E passes but seems to test the wrong thing                       | Something else was already running on port 3000, and Playwright reused it. Stop it and re-run                                                                  |
 | `[MSW] … intercepted a request without a matching request handler` | Your code called an endpoint that `tests/mocks/handlers.ts` doesn't know. Add a handler, or `server.use(...)` one in the test                                  |
-| `EPERM` when running `pnpm build` on Windows                       | A running `pnpm start` is holding `dist/app`. Stop it first                                                                                                    |
-| ESLint: `'x' should be listed in the project's dependencies`       | You imported a package that isn't in `package.json`. Run `pnpm add x` (or `pnpm add -D x` for test-only code)                                                  |
+| `EPERM` when running `yarn build` on Windows                       | A running `yarn start` is holding `dist/app`. Stop it first                                                                                                    |
+| ESLint: `'x' should be listed in the project's dependencies`       | You imported a package that isn't in `package.json`. Run `yarn add x` (or `yarn add -D x` for test-only code)                                                  |
 | ESLint: `Import a feature through its index.ts`                    | Import from `@/features/<name>`, and export what you need from that feature's `index.ts`                                                                       |
 | ESLint: `Use the "@/" alias instead of "../" imports`              | Write `@/lib/...` instead of `../../lib/...`                                                                                                                   |
 | pa11y reports errors                                               | Read the message: it names the element and usually the fix (missing label, low contrast, missing `alt`)                                                        |

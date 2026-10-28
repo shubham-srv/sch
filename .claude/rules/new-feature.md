@@ -25,6 +25,6 @@ This is Next.js 16 with Cache Components. Read the relevant guide in
 8. New runtime config: add it to the zod schema in `src/lib/env.server.ts` and
    to `.env.example`. Never use `NEXT_PUBLIC_*` for values that differ per environment.
 9. Add tests (`testing.md`), and add the route to `.pa11yci.js`.
-10. Run `pnpm verify`. Leave committing to the developer.
+10. Run `yarn verify`. Leave committing to the developer.
 
-`pnpm dev` needs `API_BASE_URL` in `.env.local`, pointing at a running backend.
+`yarn dev` needs `API_BASE_URL` in `.env.local`, pointing at a running backend.

@@ -1,0 +1,37 @@
+# Node from .nvmrc, Yarn from package.json "packageManager" (via Corepack),
+# and an immutable install with Yarn's package cache cached by lockfile hash.
+parameters:
+  - name: installPlaywrightChromium
+    type: boolean
+    default: false
+
+steps:
+  - task: UseNode@1
+    displayName: Use Node.js from .nvmrc
+    inputs:
+      versionSource: fromFile
+      versionFilePath: .nvmrc
+
+  - script: corepack enable
+    displayName: Enable Corepack
+
+  - task: Cache@2
+    displayName: Cache Yarn packages
+    inputs:
+      key: 'yarn | "$(Agent.OS)" | yarn.lock'
+      restoreKeys: |
+        yarn | "$(Agent.OS)"
+      path: $(Pipeline.Workspace)/.yarn-berry/cache
+
+  # Yarn keeps its package cache in <global folder>/cache; this points it at
+  # the folder the Cache task saves and restores.
+  - script: yarn install --immutable
+    displayName: yarn install
+    env:
+      YARN_GLOBAL_FOLDER: $(Pipeline.Workspace)/.yarn-berry
+
+  # --with-deps installs OS packages with sudo. On self-hosted agents without
+  # passwordless sudo, preinstall them and drop the flag.
+  - ${{ if parameters.installPlaywrightChromium }}:
+      - script: yarn playwright install --with-deps chromium
+        displayName: Install Playwright Chromium

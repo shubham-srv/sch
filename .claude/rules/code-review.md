@@ -4,7 +4,7 @@ Use this for every review: a PR, a diff, or your own work before finishing.
 Report findings as `file:line`, most severe first. Don't comment on anything
 Prettier or ESLint already enforce.
 
-Gate: `pnpm verify` passes (format, lint, typecheck, Vitest, build).
+Gate: `yarn verify` passes (format, lint, typecheck, Vitest, build).
 
 Check:
 

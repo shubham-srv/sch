@@ -55,15 +55,15 @@ stages:
       - job: Validate
         steps:
           - checkout: self
-          - template: templates/setup-node-pnpm.yml
+          - template: templates/setup-node-yarn.yml
 
-          - script: pnpm format:check
+          - script: yarn format:check
             displayName: Prettier
-          - script: pnpm lint
+          - script: yarn lint
             displayName: ESLint
-          - script: pnpm typecheck
+          - script: yarn typecheck
             displayName: TypeScript
-          - script: pnpm test:cov
+          - script: yarn test:cov
             displayName: Unit, component and integration tests
 
           - task: PublishTestResults@2
@@ -85,9 +85,9 @@ stages:
       - job: Package
         steps:
           - checkout: self
-          - template: templates/setup-node-pnpm.yml
+          - template: templates/setup-node-yarn.yml
           # next build + scripts/package-app.mjs -> dist/app
-          - script: pnpm build
+          - script: yarn build
             displayName: Build and package the app
           # For the test stages of this run.
           - task: PublishPipelineArtifact@1
@@ -115,7 +115,7 @@ stages:
       - job: Playwright
         steps:
           - checkout: self
-          - template: templates/setup-node-pnpm.yml
+          - template: templates/setup-node-yarn.yml
             parameters:
               installPlaywrightChromium: true
           - download: current
@@ -126,7 +126,7 @@ stages:
               apiBaseUrl: $(stagingApiBaseUrl)
               port: "3000"
               steps:
-                - script: pnpm test:e2e
+                - script: yarn test:e2e
                   displayName: Playwright against the packaged app
                   env:
                     PLAYWRIGHT_BASE_URL: http://127.0.0.1:3000
@@ -142,7 +142,7 @@ stages:
       - job: Pa11y
         steps:
           - checkout: self
-          - template: templates/setup-node-pnpm.yml
+          - template: templates/setup-node-yarn.yml
             parameters:
               installPlaywrightChromium: true
           - download: current
@@ -154,7 +154,7 @@ stages:
               apiBaseUrl: $(stagingApiBaseUrl)
               port: "3001"
               steps:
-                - script: pnpm a11y:ci
+                - script: yarn a11y:ci
                   displayName: pa11y-ci
                   env:
                     A11Y_BASE_URL: http://127.0.0.1:3001
@@ -195,10 +195,10 @@ stages:
                     package: $(Pipeline.Workspace)/release
                     slot: $(stagingSlot)
                     apiBaseUrl: $(stagingApiBaseUrl)
-                - template: templates/setup-node-pnpm.yml
+                - template: templates/setup-node-yarn.yml
                   parameters:
                     installPlaywrightChromium: true
-                - script: pnpm test:e2e
+                - script: yarn test:e2e
                   displayName: Playwright against staging
                   env:
                     PLAYWRIGHT_BASE_URL: $(deployApp.AppServiceApplicationUrl)
@@ -238,11 +238,11 @@ stages:
                 - template: templates/wait-for-health.yml
                   parameters:
                     url: $(productionUrl)
-                - template: templates/setup-node-pnpm.yml
+                - template: templates/setup-node-yarn.yml
                   parameters:
                     installPlaywrightChromium: true
                 # Production gets only the read-only @smoke tests.
-                - script: pnpm test:e2e --grep @smoke
+                - script: yarn test:e2e --grep @smoke
                   displayName: Smoke tests against production
                   env:
                     PLAYWRIGHT_BASE_URL: $(productionUrl)

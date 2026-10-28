@@ -38,10 +38,10 @@ jobs:
     displayName: Full E2E suite against staging
     steps:
       - checkout: self
-      - template: templates/setup-node-pnpm.yml
+      - template: templates/setup-node-yarn.yml
         parameters:
           installPlaywrightChromium: true
-      - script: pnpm test:e2e
+      - script: yarn test:e2e
         displayName: Playwright against staging
         env:
           PLAYWRIGHT_BASE_URL: $(stagingUrl)
@@ -55,10 +55,10 @@ jobs:
     displayName: Accessibility against staging
     steps:
       - checkout: self
-      - template: templates/setup-node-pnpm.yml
+      - template: templates/setup-node-yarn.yml
         parameters:
           installPlaywrightChromium: true
-      - script: pnpm a11y:ci
+      - script: yarn a11y:ci
         displayName: pa11y-ci against staging
         env:
           A11Y_BASE_URL: $(stagingUrl)
@@ -73,10 +73,10 @@ jobs:
     displayName: Smoke tests against production
     steps:
       - checkout: self
-      - template: templates/setup-node-pnpm.yml
+      - template: templates/setup-node-yarn.yml
         parameters:
           installPlaywrightChromium: true
-      - script: pnpm test:e2e --grep @smoke
+      - script: yarn test:e2e --grep @smoke
         displayName: Playwright @smoke against production
         env:
           PLAYWRIGHT_BASE_URL: $(productionUrl)

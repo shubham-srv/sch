@@ -26,32 +26,47 @@ differed from what the spec assumed. `docs/spec.md` itself is kept as written.
 - **Two READMEs.** `readme-prod.md` gives the overview, setup and how the app
   works; `README.md` is the developer reference. `docs/dummy-guide.md` explains
   every tool and the testing approach for newcomers.
+- **Yarn 4.14.1 instead of pnpm**, to match the client's other application.
+  Yarn comes from Corepack (`packageManager`) and is configured in
+  `.yarnrc.yml` (see Repository and tooling). The spec's `.npmrc`
+  (`engine-strict=true`) is gone: Yarn reads neither `.npmrc` nor the
+  `engines` field, so nothing checks the Node version at install time. `.nvmrc`
+  (nvm locally, `UseNode@1` in the pipeline) and App Service's `NODE|24-lts`
+  set it instead.
+- **Node 22 is allowed for local development** (`engines: ^22.22.2 || ^24.22.1`),
+  for machines that have Node 22. The pipeline (`.nvmrc`) and App Service stay
+  on 24, so what is tested and deployed doesn't change. 22.22.2 is the floor
+  because jsdom and lint-staged require it. Checked on 22.23.2: immutable
+  install, `yarn verify`, and `yarn start` rendering a page from a backend.
+  The types stay `@types/node` 24, so an API that only Node 24 has would
+  type-check but fail on 22. Node 22 is supported upstream until 30 April 2027.
 
 ## Installed versions
 
-| Tool / package                                                  | Version                                                                                                                                                        | Note                                                                                   |
-| --------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------- |
-| Node.js                                                         | 24.22.1                                                                                                                                                        | Active LTS ("Krypton"); `.nvmrc`, `engines: >=24.22.1 <25`; App Service `NODE\|24-lts` |
-| pnpm                                                            | 12.15.0                                                                                                                                                        | via Corepack, `packageManager`                                                         |
-| next, eslint-config-next                                        | 16.4.2                                                                                                                                                         |                                                                                        |
-| react, react-dom                                                | 19.3.0                                                                                                                                                         |                                                                                        |
-| typescript                                                      | 5.9.3                                                                                                                                                          | not 7.x, see below                                                                     |
-| tailwindcss, @tailwindcss/turbopack                             | 4.3.3                                                                                                                                                          |                                                                                        |
-| shadcn (CLI)                                                    | 4.22.1                                                                                                                                                         | style `base-nova`, base colour `neutral`                                               |
-| @base-ui/react / class-variance-authority / cn / tw-animate-css | 1.9.0 / 0.7.1 / 0.5.0 / 1.4.0                                                                                                                                  | added by shadcn                                                                        |
-| zod                                                             | 4.6.7                                                                                                                                                          |                                                                                        |
-| vitest, @vitest/coverage-v8                                     | 5.0.5                                                                                                                                                          | Vite 8.3.5                                                                             |
-| @vitejs/plugin-react                                            | 6.1.2                                                                                                                                                          |                                                                                        |
-| @testing-library/react / dom / user-event / jest-dom            | 16.3.3 / 10.4.2 / 14.6.8 / 7.0.1                                                                                                                               |                                                                                        |
-| jsdom                                                           | 30.1.3                                                                                                                                                         |                                                                                        |
-| msw                                                             | 3.0.3                                                                                                                                                          |                                                                                        |
-| @playwright/test                                                | 1.64.1                                                                                                                                                         | Chromium 156                                                                           |
-| pa11y-ci                                                        | 5.0.0                                                                                                                                                          | pa11y 10.0.0, puppeteer 25.15.0                                                        |
-| eslint                                                          | 9.39.5                                                                                                                                                         | not 10.x, see below                                                                    |
-| eslint-plugin-testing-library                                   | 7.16.2                                                                                                                                                         |                                                                                        |
-| prettier / prettier-plugin-tailwindcss                          | 3.9.10 / 0.8.1                                                                                                                                                 |                                                                                        |
-| husky / lint-staged                                             | 9.1.7 / 17.6.0                                                                                                                                                 |                                                                                        |
-| Pipeline tasks                                                  | UseNode@1, Cache@2, PublishTestResults@2, PublishCodeCoverageResults@2, PublishPipelineArtifact@1, UniversalPackages@0, AzureWebApp@1, AzureAppServiceManage@0 | checked against Microsoft Learn                                                        |
+| Tool / package                                                  | Version                                                                                                                                                        | Note                                                                                            |
+| --------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------- |
+| Node.js                                                         | 24.22.1                                                                                                                                                        | Active LTS ("Krypton"); `.nvmrc`, `engines: ^22.22.2 \|\| ^24.22.1`; App Service `NODE\|24-lts` |
+| Yarn                                                            | 4.14.1                                                                                                                                                         | via Corepack, `packageManager`                                                                  |
+| next, eslint-config-next                                        | 16.4.2                                                                                                                                                         |                                                                                                 |
+| react, react-dom                                                | 19.3.0                                                                                                                                                         |                                                                                                 |
+| typescript                                                      | 5.9.3                                                                                                                                                          | not 7.x, see below                                                                              |
+| tailwindcss, @tailwindcss/turbopack                             | 4.3.3                                                                                                                                                          |                                                                                                 |
+| shadcn (CLI)                                                    | 4.22.1                                                                                                                                                         | style `base-nova`, base colour `neutral`                                                        |
+| @base-ui/react / class-variance-authority / cn / tw-animate-css | 1.9.0 / 0.7.1 / 0.5.0 / 1.4.0                                                                                                                                  | added by shadcn                                                                                 |
+| zod                                                             | 4.6.7                                                                                                                                                          |                                                                                                 |
+| vitest, @vitest/coverage-v8                                     | 5.0.5                                                                                                                                                          |                                                                                                 |
+| vite                                                            | 8.3.5                                                                                                                                                          | peer of Vitest, `@vitejs/plugin-react` and MSW                                                  |
+| @vitejs/plugin-react                                            | 6.1.2                                                                                                                                                          |                                                                                                 |
+| @testing-library/react / dom / user-event / jest-dom            | 16.3.3 / 10.4.2 / 14.6.8 / 7.0.1                                                                                                                               |                                                                                                 |
+| jsdom                                                           | 30.1.3                                                                                                                                                         |                                                                                                 |
+| msw                                                             | 3.0.3                                                                                                                                                          |                                                                                                 |
+| @playwright/test                                                | 1.64.1                                                                                                                                                         | Chromium 156                                                                                    |
+| pa11y-ci                                                        | 5.0.0                                                                                                                                                          | pa11y 10.0.0, puppeteer 25.16.0                                                                 |
+| eslint                                                          | 9.39.5                                                                                                                                                         | not 10.x, see below                                                                             |
+| eslint-plugin-testing-library                                   | 7.16.2                                                                                                                                                         |                                                                                                 |
+| prettier / prettier-plugin-tailwindcss                          | 3.9.10 / 0.8.1                                                                                                                                                 |                                                                                                 |
+| husky / lint-staged                                             | 9.1.7 / 17.6.0                                                                                                                                                 |                                                                                                 |
+| Pipeline tasks                                                  | UseNode@1, Cache@2, PublishTestResults@2, PublishCodeCoverageResults@2, PublishPipelineArtifact@1, UniversalPackages@0, AzureWebApp@1, AzureAppServiceManage@0 | checked against Microsoft Learn                                                                 |
 
 ## Repository and tooling
 
@@ -62,23 +77,35 @@ differed from what the spec assumed. `docs/spec.md` itself is kept as written.
 - **ESLint 9, not 10.** ESLint 9 is deprecated upstream, but
   `eslint-plugin-react`, `jsx-a11y` and `import` (inside eslint-config-next)
   only support up to 9.
-- **pnpm 12 configuration lives in `pnpm-workspace.yaml`.** pnpm 11+ reads only
-  auth and registry settings from `.npmrc`, so `engineStrict: true` is set
-  there. `.npmrc` keeps `engine-strict=true` for npm users, as the spec asks.
-- **`nodeLinker: hoisted`** gives a flat `node_modules` of real folders.
-  pnpm's default layout is built from symlinks, and Next's standalone output
-  copies them. Copying them as files breaks module resolution (tried and
-  confirmed), and a zip deployment to App Service does not reliably keep
-  symlinks. **`import/no-extraneous-dependencies`** (ESLint) restores the
+- **Yarn's settings live in `.yarnrc.yml`.** Yarn itself comes from Corepack
+  (`packageManager: yarn@4.14.1`), so there is no `.yarn/releases` binary.
+- **`nodeLinker: node-modules`** gives a flat `node_modules` of real folders.
+  Yarn's default, Plug'n'Play, has no `node_modules`, and Turbopack does not
+  support it ("not planned" in the Next.js docs). Next's standalone output
+  copies `node_modules`, and a zip deployment to App Service does not reliably
+  keep symlinks. **`import/no-extraneous-dependencies`** (ESLint) restores the
   strictness this gives up: every import must be declared in `package.json`,
   and app code may not use devDependencies.
-- **`shellEmulator: true`** (pnpm) so scripts such as
-  `A11Y_REPORT_FILE=… pa11y-ci` work on Windows as well as Linux.
-- **Dependency build scripts are all denied** (`allowBuilds`). esbuild, sharp
-  and unrs-resolver work from their prebuilt optional packages. puppeteer's
-  script would download Chrome. Instead, **pa11y uses Playwright's Chromium**
-  through `chromeLaunchConfig.executablePath`, so only one browser is downloaded.
-- **pnpm's `minimumReleaseAge` default (24 h)** is kept as supply-chain protection.
+- **Yarn runs scripts through its own cross-platform shell**, so scripts such
+  as `A11Y_REPORT_FILE=… pa11y-ci` work on Windows as well as Linux.
+- **Dependency install scripts are all denied** (`enableScripts: false`, also
+  Yarn's default since 4.14). The two packages that have one are marked
+  `built: false` under `dependenciesMeta` in `package.json`, which turns Yarn's
+  warning into a notice. unrs-resolver works from its prebuilt optional
+  package. puppeteer's script would download Chrome. Instead, **pa11y uses
+  Playwright's Chromium** through `chromeLaunchConfig.executablePath`, so only
+  one browser is downloaded.
+- **`npmMinimalAgeGate: 1d`**: versions published less than a day ago are not
+  installed, as supply-chain protection. It is set explicitly because Yarn made
+  it the default only in 4.15.
+- **Peer dependencies are declared, not auto-installed.** Yarn does not
+  install missing peers, so `vite` (a peer of Vitest, `@vitejs/plugin-react`
+  and MSW) is a devDependency. `@types/set-cookie-parser` (from MSW) accepts
+  any `@types/node`, which would add a second, newer copy; a `resolutions`
+  entry keeps one, matching Node 24. Yarn still warns about two peers inside
+  eslint-config-next and eslint-plugin-testing-library; the root install
+  provides both, so they are harmless.
+- **Telemetry is off** (`enableTelemetry: false`).
 - **`typecheck` runs `next typegen` first.** Route types such as `LayoutProps`
   are generated into `.next/types`.
 - **`lint` uses `--max-warnings=0`.** An `any` needs an
@@ -91,7 +118,8 @@ differed from what the spec assumed. `docs/spec.md` itself is kept as written.
 - **`vitest.config.mts`, not `.ts`.** The config is ESM and the package has no
   `"type": "module"`. The Next.js Vitest guide uses `.mts` too.
 - **Vite 8's `resolve.tsconfigPaths`** replaces the `vite-tsconfig-paths` plugin.
-- **Husky's hook is installed by `prepare`.** `HUSKY=0` skips it in CI.
+- **Husky's hook is installed by `postinstall`**, because Yarn does not run
+  `prepare`. `HUSKY=0` skips it in CI.
 
 ## Next.js
 
@@ -161,18 +189,18 @@ differed from what the spec assumed. `docs/spec.md` itself is kept as written.
 
 ## Build and deploy
 
-- **`pnpm build` = `next build` + `scripts/package-app.mjs`**, which copies the
-  standalone server, `.next/static` and `public/` into `dist/app` (24 MB, no
-  symlinks). **`pnpm start` runs `dist/app/server.js`** with
+- **`yarn build` = `next build` + `scripts/package-app.mjs`**, which copies the
+  standalone server, `.next/static` and `public/` into `dist/app` (no
+  symlinks; about 24 MB on Windows, 41 MB on Linux with sharp's image library). **`yarn start` runs `dist/app/server.js`** with
   `node --env-file-if-exists=.env.local`; `next start` is not used with
   standalone output. Playwright's local server uses the same two commands, so
   local E2E tests the same artifact that is deployed.
 - **Build on Linux only for deployment.** `dist/app` contains the building
   machine's native binaries (sharp). The pipeline builds on the Linux agents,
   which matches App Service on Linux. A Linux build from a clean copy was
-  checked: frozen install, `pnpm verify`, no symlinks, and `/_next/image`
+  checked: immutable install, `yarn verify`, no symlinks, and `/_next/image`
   returns WebP. On Windows, Next's file tracing leaves out sharp's DLLs, so a
-  locally built `pnpm start` serves images unoptimised. That affects local
+  locally built `yarn start` serves images unoptimised. That affects local
   runs only.
 - **Zip deploy, not run-from-package.** `AzureWebApp@1` on `webAppLinux` uses
   zip deploy. Run-from-package would make `wwwroot` read-only, and Next.js

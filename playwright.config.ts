@@ -39,7 +39,7 @@ export default defineConfig({
   webServer: externalBaseURL
     ? undefined
     : {
-        command: "pnpm build && pnpm start",
+        command: "yarn build && yarn start",
         url: "http://localhost:3000/api/health",
         reuseExistingServer: !isCI,
         timeout: 300_000,

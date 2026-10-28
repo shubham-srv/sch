@@ -57,7 +57,8 @@ The reasons behind each choice are in [docs/dummy-guide.md](docs/dummy-guide.md)
 You need:
 
 - **Node.js 24.22.1.** With nvm: `nvm install 24.22.1` then `nvm use 24.22.1`.
-- **pnpm**, through Corepack, which comes with Node: `corepack enable`.
+  Node 22 (22.22.2 or later) also works on your machine.
+- **Yarn**, through Corepack, which comes with Node: `corepack enable`.
 - **The backend** running locally (the backend team's container), or the
   URL of a backend you can reach.
 
@@ -67,7 +68,7 @@ Then:
 git clone <repo-url>
 cd <repo-folder>
 corepack enable
-pnpm install
+yarn install
 cp .env.example .env.local
 ```
 
@@ -75,7 +76,7 @@ Edit `.env.local` and set `API_BASE_URL` to your backend, for example
 `http://localhost:8080`. Then start the app:
 
 ```sh
-pnpm dev
+yarn dev
 ```
 
 Open http://localhost:3000. You should see the backend's greeting as the
@@ -85,10 +86,10 @@ backend: check that it is running and that `API_BASE_URL` is right.
 ### Checking your work
 
 ```sh
-pnpm test        # fast tests; no backend needed
-pnpm verify      # everything the pipeline checks first, plus the build
-pnpm exec playwright install chromium   # once, for the browser tests
-pnpm test:e2e    # end-to-end tests in a real browser, against your backend
+yarn test        # fast tests; no backend needed
+yarn verify      # everything the pipeline checks first, plus the build
+yarn playwright install chromium   # once, for the browser tests
+yarn test:e2e    # end-to-end tests in a real browser, against your backend
 ```
 
 ## Configuration

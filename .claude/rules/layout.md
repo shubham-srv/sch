@@ -7,7 +7,7 @@ Where code goes and what may import what. Details: `docs/architecture.md`.
 | `src/app/`             | Routes only: thin pages that compose features. Pages sharing a shell (sidebar, topbar) sit in a route group, e.g. `src/app/(dashboard)/` with its own `layout.tsx`.    |
 | `src/features/<name>/` | One data domain: `api/queries.ts` (reads), `api/actions.ts` (writes), `api/mappers.ts` (zod schema + mapping), `components/`, `types.ts`, `index.ts` (public surface). |
 | `src/components/`      | Shared components; data comes in as props, never fetched. `layout/` holds the app shell.                                                                               |
-| `src/components/ui/`   | shadcn/ui, vendored: add with `pnpm dlx shadcn@latest add <name>`; no logic, no tests.                                                                                 |
+| `src/components/ui/`   | shadcn/ui, vendored: add with `yarn dlx shadcn@latest add <name>`; no logic, no tests.                                                                                 |
 | `src/hooks/`           | Shared client hooks.                                                                                                                                                   |
 | `src/lib/`             | Plumbing: `env.server.ts` (runtime config), `api/` (backend client, `ApiError`), `utils.ts`.                                                                           |
 | `tests/`               | Vitest setup, MSW handlers, test utilities, integration tests.                                                                                                         |

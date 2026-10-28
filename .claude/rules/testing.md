@@ -40,12 +40,12 @@ The file extension picks the environment: `.test.ts` runs in node, `.test.tsx` i
 ## Commands
 
 ```sh
-pnpm test                                         # all Vitest layers
-pnpm test <file-filter>                           # matching files only
-pnpm exec vitest run <file> -t "<test name>"      # one test
-pnpm exec vitest                                  # watch mode
-pnpm test:cov                                     # coverage: 80% lines/functions/statements, 75% branches
-pnpm test:e2e
-pnpm exec playwright test <file> -g "<test name>"
-pnpm a11y
+yarn test                                         # all Vitest layers
+yarn test <file-filter>                           # matching files only
+yarn vitest run <file> -t "<test name>"           # one test
+yarn vitest                                       # watch mode
+yarn test:cov                                     # coverage: 80% lines/functions/statements, 75% branches
+yarn test:e2e
+yarn playwright test <file> -g "<test name>"
+yarn a11y
 ```

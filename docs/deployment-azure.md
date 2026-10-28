@@ -135,10 +135,11 @@ Redis, through Next.js `cacheHandlers` (for `'use cache'`) and `cacheHandler`
    - git, curl and bash.
    - Passwordless sudo for `playwright install --with-deps`, or Chromium's
      system packages preinstalled (then drop `--with-deps` in
-     `templates/setup-node-pnpm.yml`).
-   - Outbound access to nodejs.org, registry.npmjs.org, the Playwright browser
-     CDN, Google Fonts (`next/font` downloads at build time), Azure Artifacts,
-     the staging backend, and the staging and production app URLs.
+     `templates/setup-node-yarn.yml`).
+   - Outbound access to nodejs.org, repo.yarnpkg.com (Corepack downloads Yarn
+     from there), registry.npmjs.org, the Playwright browser CDN, Google Fonts
+     (`next/font` downloads at build time), Azure Artifacts, the staging
+     backend, and the staging and production app URLs.
 
    The E2E (port 3000) and Accessibility (port 3001) stages can share an
    agent host. Two pipeline runs on the same host at once could still collide.

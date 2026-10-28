@@ -7,21 +7,22 @@ app is, how to set it up and how it works, start with
 
 ## Prerequisites
 
-- Node.js 24.22.1 (`.nvmrc`; `nvm use`)
-- Corepack, which installs the pnpm version pinned in `package.json`:
+- Node.js 24.22.1 (`.nvmrc`; `nvm use`). Node 22.22.2 or later also works
+  locally; the pipeline and Azure run 24.
+- Corepack, which installs the Yarn version pinned in `package.json`:
   `corepack enable`
 - A running backend. Locally, that's your backend container; set
   `API_BASE_URL` in `.env.local`.
-- Playwright's Chromium, for E2E and pa11y: `pnpm exec playwright install chromium`
+- Playwright's Chromium, for E2E and pa11y: `yarn playwright install chromium`
 
 ## Everyday commands
 
 ```sh
-pnpm install
+yarn install
 cp .env.example .env.local   # then point API_BASE_URL at your backend
-pnpm dev                     # http://localhost:3000, with hot reload
-pnpm test                    # unit + component + integration (no backend needed)
-pnpm verify                  # what the pipeline's Validate stage checks, plus the build
+yarn dev                     # http://localhost:3000, with hot reload
+yarn test                    # unit + component + integration (no backend needed)
+yarn verify                  # what the pipeline's Validate stage checks, plus the build
 ```
 
 ## Scripts
@@ -60,21 +61,21 @@ goes and which imports are allowed.
 ## Tests
 
 ```sh
-pnpm test             # unit + component + integration; uses the MSW fake backend
-pnpm test:unit        # pure logic, Node environment
-pnpm test:component   # React components, jsdom
-pnpm test:int         # query + API client + component, HTTP faked by MSW
-pnpm exec vitest      # watch mode: re-runs tests as you save
-pnpm test:e2e         # Playwright; needs a real backend (see below)
-pnpm a11y             # pa11y-ci against a running app
+yarn test             # unit + component + integration; uses the MSW fake backend
+yarn test:unit        # pure logic, Node environment
+yarn test:component   # React components, jsdom
+yarn test:int         # query + API client + component, HTTP faked by MSW
+yarn vitest           # watch mode: re-runs tests as you save
+yarn test:e2e         # Playwright; needs a real backend (see below)
+yarn a11y             # pa11y-ci against a running app
 ```
 
 E2E always uses a real backend:
 
-- `pnpm test:e2e` builds the app, starts it with `API_BASE_URL` from
+- `yarn test:e2e` builds the app, starts it with `API_BASE_URL` from
   `.env.local` (your backend container) and runs the tests. If an app is
   already running on port 3000, it is reused.
-- `PLAYWRIGHT_BASE_URL=https://<deployed-url> pnpm test:e2e` tests a deployed
+- `PLAYWRIGHT_BASE_URL=https://<deployed-url> yarn test:e2e` tests a deployed
   environment instead, and starts nothing.
 - Set `E2E_EXPECTED_GREETING` to check the greeting's exact text.
 
@@ -83,11 +84,11 @@ More detail is in [docs/testing.md](docs/testing.md).
 ## Running the production build locally
 
 ```sh
-pnpm build    # creates dist/app
-pnpm start    # http://localhost:3000, API_BASE_URL from .env.local
+yarn build    # creates dist/app
+yarn start    # http://localhost:3000, API_BASE_URL from .env.local
 ```
 
-On Windows, stop `pnpm start` before rebuilding: a running server locks `dist/app`.
+On Windows, stop `yarn start` before rebuilding: a running server locks `dist/app`.
 
 ## Docs
 

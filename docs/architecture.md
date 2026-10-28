@@ -6,7 +6,7 @@
 | ------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `src/app/`               | Routes only. Pages compose feature components and call feature functions; no business logic. Pages that share an app shell (sidebar, topbar) sit in a route group such as `(dashboard)/`, which has its own `layout.tsx` and adds nothing to the URL. Also `error.tsx`, `global-error.tsx`, `not-found.tsx` and route handlers such as `api/health`. |
 | `src/features/<name>/`   | Everything one data domain owns: `components/`, `api/` (`queries.ts`, `actions.ts`, `mappers.ts`), `types.ts`, and `index.ts`, its public surface. Group features by data domain, not by page; a page composes several features, and several pages can reuse one.                                                                                    |
-| `src/components/ui/`     | shadcn/ui components, treated as vendored code: no business logic, no tests. Add with `pnpm dlx shadcn@latest add <name>`.                                                                                                                                                                                                                           |
+| `src/components/ui/`     | shadcn/ui components, treated as vendored code: no business logic, no tests. Add with `yarn dlx shadcn@latest add <name>`.                                                                                                                                                                                                                           |
 | `src/components/`        | Shared components used by several features or routes, such as cards and chart wrappers. They take data as props and never fetch.                                                                                                                                                                                                                     |
 | `src/components/layout/` | App-shell pieces: sidebar, topbar, footer.                                                                                                                                                                                                                                                                                                           |
 | `src/hooks/`             | Shared client hooks.                                                                                                                                                                                                                                                                                                                                 |
@@ -59,11 +59,11 @@ new feature is covered automatically.
   in `src/lib/env.server.ts`. It validates with zod **on first call**, not at
   import, so `next build` works without runtime variables. Do not use
   `NEXT_PUBLIC_*` for anything that differs between environments.
-- **Build output.** `pnpm build` runs `next build` (with `output: "standalone"`)
+- **Build output.** `yarn build` runs `next build` (with `output: "standalone"`)
   and then `scripts/package-app.mjs`. That script copies the standalone server,
   `.next/static` and `public/` into `dist/app`. `dist/app` is self-contained:
   `node dist/app/server.js` runs it with no install. This folder is what gets
-  tested, stored in Azure Artifacts and deployed. `pnpm start` runs it locally.
+  tested, stored in Azure Artifacts and deployed. `yarn start` runs it locally.
 - **Security headers** are set for all routes in `next.config.ts`.
 - **Observability** (Application Insights, OpenTelemetry) hooks into
   `src/instrumentation.ts`, the Next.js `register()` hook.

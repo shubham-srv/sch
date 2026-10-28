@@ -1,7 +1,7 @@
 // pa11y-ci configuration. JavaScript so the target URL can come from env.
 // Chrome: pa11y uses Playwright's Chromium (installed by
-// `pnpm exec playwright install chromium`) instead of Puppeteer's own
-// download, which pnpm blocks; see pnpm-workspace.yaml.
+// `yarn playwright install chromium`) instead of Puppeteer's own
+// download, which Yarn blocks; see enableScripts in .yarnrc.yml.
 const { chromium } = require("@playwright/test");
 
 const baseUrl = (process.env.A11Y_BASE_URL ?? "http://localhost:3000").replace(

@@ -5,6 +5,6 @@
 ## Checklist
 
 - [ ] Tests added or updated at the right layer (unit, component, integration, E2E)
-- [ ] Accessibility considered (keyboard, labels, contrast; `pnpm a11y` passes)
+- [ ] Accessibility considered (keyboard, labels, contrast; `yarn a11y` passes)
 - [ ] Docs updated if behaviour, config or architecture changed
-- [ ] `pnpm verify` passes locally
+- [ ] `yarn verify` passes locally

@@ -4,7 +4,7 @@
 // publishes to Azure Artifacts and deploys to the Web App.
 //
 // The package must contain no symlinks, because a zip deployment to App
-// Service does not reliably keep them. pnpm's flat layout (nodeLinker: hoisted)
+// Service does not reliably keep them. Yarn's flat node_modules (.yarnrc.yml)
 // produces none; `dereference` makes sure none slip through.
 import { cpSync, existsSync, rmSync } from "node:fs";
 import { fileURLToPath } from "node:url";
@@ -19,10 +19,10 @@ if (!existsSync(from(".next/standalone/server.js"))) {
 }
 
 // Retries cover Windows briefly locking fresh files (antivirus, indexing).
-// A running `pnpm start` also locks dist/app on Windows: stop it first.
+// A running `yarn start` also locks dist/app on Windows: stop it first.
 rmSync(out, { recursive: true, force: true, maxRetries: 5, retryDelay: 200 });
 cpSync(from(".next/standalone"), out, { recursive: true, dereference: true });
 cpSync(from(".next/static"), `${out}/.next/static`, { recursive: true });
 cpSync(from("public"), `${out}/public`, { recursive: true });
 
-console.log("Packaged the app in dist/app (start it with `pnpm start`).");
+console.log("Packaged the app in dist/app (start it with `yarn start`).");

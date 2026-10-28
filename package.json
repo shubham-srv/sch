@@ -2,9 +2,9 @@
   "name": "web",
   "version": "0.1.0",
   "private": true,
-  "packageManager": "pnpm@12.15.0",
+  "packageManager": "yarn@4.14.1",
   "engines": {
-    "node": ">=24.22.1 <25"
+    "node": "^22.22.2 || ^24.22.1"
   },
   "scripts": {
     "dev": "next dev",
@@ -24,8 +24,8 @@
     "test:e2e:ui": "playwright test --ui",
     "a11y": "pa11y-ci --config .pa11yci.js",
     "a11y:ci": "A11Y_REPORT_FILE=reports/a11y.json pa11y-ci --config .pa11yci.js",
-    "verify": "pnpm format:check && pnpm lint && pnpm typecheck && pnpm test && pnpm build",
-    "prepare": "husky"
+    "verify": "yarn format:check && yarn lint && yarn typecheck && yarn test && yarn build",
+    "postinstall": "husky"
   },
   "lint-staged": {
     "*.{ts,tsx,js,mjs,cjs}": [
@@ -70,6 +70,18 @@
     "shadcn": "4.22.1",
     "tailwindcss": "^4",
     "typescript": "^5",
+    "vite": "^8.3.5",
     "vitest": "^5.0.5"
+  },
+  "dependenciesMeta": {
+    "puppeteer": {
+      "built": false
+    },
+    "unrs-resolver": {
+      "built": false
+    }
+  },
+  "resolutions": {
+    "@types/node": "^24"
   }
 }

@@ -42,7 +42,7 @@ const eslintConfig = defineConfig([
     rules: {
       // An `any` needs an eslint-disable comment that says why.
       "@typescript-eslint/no-explicit-any": "error",
-      // node_modules is flat (pnpm-workspace.yaml), so a package that is only
+      // node_modules is flat (.yarnrc.yml), so a package that is only
       // installed as someone else's dependency would still import. Every
       // import must be declared in package.json; app code may not use
       // devDependencies.
