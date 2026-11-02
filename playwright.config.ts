@@ -1,9 +1,11 @@
 import { existsSync } from "node:fs";
 import { defineConfig, devices } from "@playwright/test";
+import { SIGNED_IN_STATE } from "./e2e/auth-state";
 
-// E2E tests always run against a real backend (docs/testing.md). Locally,
-// .env.local supplies API_BASE_URL (your backend container) and any optional
-// E2E_EXPECTED_* values the tests read.
+// E2E tests always run against a real backend and real Microsoft Entra ID
+// (docs/testing.md). Locally, .env.local supplies API_BASE_URL (your backend
+// container), the Entra settings, the test account (E2E_USERNAME,
+// E2E_PASSWORD) and any optional E2E_EXPECTED_* values the tests read.
 if (existsSync(".env.local")) process.loadEnvFile(".env.local");
 
 const isCI = !!process.env.CI;
@@ -32,7 +34,16 @@ export default defineConfig({
     trace: "on-first-retry",
     video: "retain-on-failure",
   },
-  projects: [{ name: "chromium", use: { ...devices["Desktop Chrome"] } }],
+  projects: [
+    // Signs in once with the test account; the tests then start signed in.
+    // Signed-out tests opt out with test.use({ storageState: ... }).
+    { name: "setup", testMatch: /auth\.setup\.ts/ },
+    {
+      name: "chromium",
+      use: { ...devices["Desktop Chrome"], storageState: SIGNED_IN_STATE },
+      dependencies: ["setup"],
+    },
+  ],
   // With no PLAYWRIGHT_BASE_URL, build the app and run the packaged server
   // (the same dist/app that is deployed). A server already running on port
   // 3000 is reused locally.

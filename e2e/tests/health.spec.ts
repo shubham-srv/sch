@@ -1,6 +1,9 @@
 import { expect, test } from "@playwright/test";
 
 test.describe("/api/health", { tag: "@smoke" }, () => {
+  // Azure calls it without signing in.
+  test.use({ storageState: { cookies: [], origins: [] } });
+
   test("reports ok", async ({ request }) => {
     const response = await request.get("/api/health");
 

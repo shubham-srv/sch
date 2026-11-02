@@ -9,7 +9,8 @@ Where code goes and what may import what. Details: `docs/architecture.md`.
 | `src/components/`      | Shared components; data comes in as props, never fetched. `layout/` holds the app shell.                                                                               |
 | `src/components/ui/`   | shadcn/ui, vendored: add with `yarn dlx shadcn@latest add <name>`; no logic, no tests.                                                                                 |
 | `src/hooks/`           | Shared client hooks.                                                                                                                                                   |
-| `src/lib/`             | Plumbing: `env.server.ts` (runtime config), `api/` (backend client, `ApiError`), `utils.ts`.                                                                           |
+| `src/lib/`             | Plumbing: `env.server.ts` (runtime config), `api/` (backend client, `ApiError`), `auth/` (Auth.js: Entra ID sign-in, session cookie), `utils.ts`.                      |
+| `src/proxy.ts`         | Runs before each request: sign-in check and token renewal. Logic stays in `src/lib/auth/`.                                                                             |
 | `tests/`               | Vitest setup, MSW handlers, test utilities, integration tests.                                                                                                         |
 | `e2e/`                 | Playwright specs and page objects.                                                                                                                                     |
 

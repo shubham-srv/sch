@@ -7,8 +7,8 @@
 | Unit          | Pure logic: mappers, error handling, env validation, the API client                 | `src/**/*.test.ts`, next to the code       | Vitest, node         | none, or a stubbed `fetch` / client |
 | Component     | One component's rendering and interaction                                           | `src/**/*.test.tsx`, next to the component | Vitest, jsdom        | none                                |
 | Integration   | Real query function, real API client and real component together, in every UI state | `tests/integration/**/*.int.test.{ts,tsx}` | Vitest, jsdom        | **fake**, through MSW               |
-| E2E           | The built app in a real browser                                                     | `e2e/tests/*.spec.ts`                      | Playwright, Chromium | **real**                            |
-| Accessibility | WCAG 2 AA with axe and HTML_CodeSniffer                                             | `.pa11yci.js`                              | pa11y-ci, Chromium   | **real**                            |
+| E2E           | The built app in a real browser                                                     | `e2e/tests/*.spec.ts`                      | Playwright, Chromium | **real**, and real Entra ID sign-in |
+| Accessibility | WCAG 2 AA with axe and HTML_CodeSniffer                                             | `.pa11yci.js`                              | pa11y-ci, Chromium   | **real**, and real Entra ID sign-in |
 
 Each Vitest layer is a `projects` entry in `vitest.config.mts`, with its own
 environment and include pattern: `yarn test:unit`, `yarn test:component`,
@@ -55,10 +55,35 @@ refresh them when the backend changes, so the fake does not drift.
   request without a handler fails instead of reaching the network.
 - `tests/setup/server-only.ts`: Vitest aliases `server-only` to this empty
   module, so server files can be imported in tests.
-- `tests/utils/next-headers.ts` and `tests/utils/next-server.ts`: mocks for
-  `next/headers` and `next/server` (`connection()`). Use them with
-  `vi.mock("next/headers", () => import("../utils/next-headers"))`.
+- `tests/utils/next-headers.ts`, `tests/utils/next-server.ts` and
+  `tests/utils/next-navigation.ts`: mocks for `next/headers` (`headers()`,
+  `cookies()`), `next/server` (`connection()`) and `next/navigation`
+  (`redirect()`, which throws a `RedirectError` carrying the URL). Use them
+  with `vi.mock("next/headers", () => import("../utils/next-headers"))`.
+- `vitest.config.mts` inlines `next-auth`, so those mocks also reach the
+  imports inside Auth.js.
+- `tests/utils/env.ts`: `stubServerEnv()` sets every server variable for tests
+  that use the real config.
 - Unit tests of a query stub the client with `vi.mock("@/lib/api/server", ...)`.
+
+### Sign-in in Vitest
+
+- `getApiClient()` needs a session. Integration tests give the request one
+  with `setRequestCookies(await signedInCookies())` (`tests/utils/session.ts`),
+  an Auth.js session cookie encrypted with the test `AUTH_SECRET`.
+  `setRequestCookies()` with no argument is a signed-out request.
+  `readSessionCookie()` decrypts a cookie the code under test set.
+- `tests/mocks/handlers.ts` also fakes Microsoft Entra ID: the tenant's
+  discovery document and the token endpoint (code exchange and renewal),
+  which returns `entraTokenResponse()`: Microsoft's documented response
+  shape with fake tokens and an ID token signed by a key generated in the
+  test run. `signInAtEntra(authorizeUrl)` stands in for Microsoft's sign-in
+  page: it returns the code to bring back to the callback. Override a handler
+  with `server.use(...)` for errors and network failures like any backend
+  handler.
+- Tests of Auth.js's route handlers and the proxy build a `NextRequest`,
+  which needs Node's `Request`, so their file starts with
+  `// @vitest-environment node`.
 
 ## E2E
 
@@ -76,7 +101,26 @@ configured with `API_BASE_URL` pointing at a reachable backend.
 
 To test any deployed app from your machine, set `PLAYWRIGHT_BASE_URL`:
 `PLAYWRIGHT_BASE_URL=https://<staging-url> yarn test:e2e`. Playwright then
-starts nothing.
+starts nothing. It must be the app's `AUTH_URL` exactly: sign-in returns
+there, and the cookies belong to that host.
+
+### Signing in
+
+Every page needs a signed-in user, and E2E signs in through the real
+Microsoft sign-in, since a fake identity provider would not prove the app
+works with Entra ID.
+
+- The `setup` project (`e2e/tests/auth.setup.ts`) signs in once with the test
+  account in `E2E_USERNAME` and `E2E_PASSWORD` and saves the browser state to
+  `e2e/.auth/user.json` (gitignored). Every other test starts from it.
+- The test account must be allowed to sign in (a member of an assigned group)
+  without MFA, from wherever the tests run.
+- A signed-out test opts out with
+  `test.use({ storageState: { cookies: [], origins: [] } })`.
+- The setup test is tagged `@smoke`, because the production smoke tests need a
+  signed-in user too. Signing in changes no data.
+- Microsoft's sign-in screens live in `e2e/pages/microsoft-sign-in.page.ts`.
+  When Microsoft changes their wording, fix the locators there.
 
 Rules for E2E tests, because they run against real, shared data:
 
@@ -94,7 +138,9 @@ Use page objects (`e2e/pages/`) and role or label locators; never CSS selectors.
 `yarn a11y` checks the URLs in `.pa11yci.js` against `A11Y_BASE_URL` (default
 `http://localhost:3000`, so start the app first). Any error fails the run.
 Every entry in its `ignore` list needs a comment saying why. Add every new
-route to `.pa11yci.js`.
+route to `.pa11yci.js`. Signed-in pages are checked only when `E2E_USERNAME`
+and `E2E_PASSWORD` are set: pa11y then signs in through Microsoft's screens
+with `actions` first.
 
 ## Coverage
 

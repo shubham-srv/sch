@@ -13,13 +13,17 @@ app is, how to set it up and how it works, start with
   `corepack enable`
 - A running backend. Locally, that's your backend container; set
   `API_BASE_URL` in `.env.local`.
+- The Microsoft Entra ID settings and an `AUTH_SECRET` in `.env.local` (see
+  `.env.example`). `http://localhost:3000/api/auth/callback/microsoft-entra-id`
+  must be a redirect URI of the app registration. E2E also needs a test account without
+  MFA (`E2E_USERNAME`, `E2E_PASSWORD`).
 - Playwright's Chromium, for E2E and pa11y: `yarn playwright install chromium`
 
 ## Everyday commands
 
 ```sh
 yarn install
-cp .env.example .env.local   # then point API_BASE_URL at your backend
+cp .env.example .env.local   # then set API_BASE_URL and the Entra values
 yarn dev                     # http://localhost:3000, with hot reload
 yarn test                    # unit + component + integration (no backend needed)
 yarn verify                  # what the pipeline's Validate stage checks, plus the build
@@ -47,7 +51,8 @@ yarn verify                  # what the pipeline's Validate stage checks, plus t
 src/app/          routes only: thin pages, error boundaries, /api/health
 src/features/     one folder per feature; import it through its index.ts
 src/components/   shared components; ui/ is vendored shadcn/ui
-src/lib/          env config, backend client, utilities
+src/lib/          env config, backend client, sign-in (Auth.js), utilities
+src/proxy.ts      sign-in check and token renewal before every request
 tests/            Vitest setup, MSW fake backend, integration tests
 e2e/              Playwright specs and page objects
 scripts/          build helpers (package-app.mjs)

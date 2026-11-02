@@ -21,6 +21,8 @@ next-env.d.ts
 /test-results
 /blob-report
 /playwright/.cache
+# Playwright's saved signed-in state: holds session cookies
+/e2e/.auth
 
 # env files (only the example is committed)
 .env*

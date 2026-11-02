@@ -4,10 +4,11 @@ The web frontend for our product. It is a Next.js application that renders
 pages on the server, gets its data from our ASP.NET Core backend API, and runs
 on Azure App Service.
 
-Today (Version 1) it has one page: it asks the backend for a greeting and
+Today it has one page: it asks the backend for a greeting and
 shows it as the page heading. That page is deliberately small; its job is to
 prove that the whole path works, from a developer's laptop through the tests
-and the pipeline to Azure. Sign-in with Microsoft Entra ID comes in Version 2.
+and the pipeline to Azure. Users sign in with their Microsoft work account
+(Microsoft Entra ID) first.
 
 ## How it works
 
@@ -28,8 +29,8 @@ and the pipeline to Azure. Sign-in with Microsoft Entra ID comes in Version 2.
 3. When the backend answers, the server checks the response has the expected
    shape and streams the heading into the page. If the backend fails, the
    user sees a friendly error with a **Try again** button, never internal details.
-4. The browser never talks to the backend directly. Backend addresses (and,
-   later, tokens) stay on the server.
+4. The browser never talks to the backend directly. Backend addresses and
+   users' tokens stay on the server.
 
 A few more things worth knowing:
 
@@ -72,15 +73,16 @@ yarn install
 cp .env.example .env.local
 ```
 
-Edit `.env.local` and set `API_BASE_URL` to your backend, for example
-`http://localhost:8080`. Then start the app:
+Edit `.env.local`: set `API_BASE_URL` to your backend, for example
+`http://localhost:8080`, and fill in the Microsoft Entra ID values and an
+`AUTH_SECRET` as `.env.example` describes. Then start the app:
 
 ```sh
 yarn dev
 ```
 
-Open http://localhost:3000. You should see the backend's greeting as the
-heading. If you see "Something went wrong", the app could not reach the
+Open http://localhost:3000 and sign in with your Microsoft work account. You
+should then see the backend's greeting as the heading. If you see "Something went wrong", the app could not reach the
 backend: check that it is running and that `API_BASE_URL` is right.
 
 ### Checking your work
@@ -94,13 +96,19 @@ yarn test:e2e    # end-to-end tests in a real browser, against your backend
 
 ## Configuration
 
-| Variable                | Used by        | Meaning                                                         |
-| ----------------------- | -------------- | --------------------------------------------------------------- |
-| `API_BASE_URL`          | the app        | Backend base URL, e.g. `https://api.example.com/api`. Required. |
-| `E2E_EXPECTED_GREETING` | E2E tests only | If set, the tests check the greeting's exact text.              |
+| Variable                       | Used by        | Meaning                                                         |
+| ------------------------------ | -------------- | --------------------------------------------------------------- |
+| `API_BASE_URL`                 | the app        | Backend base URL, e.g. `https://api.example.com/api`. Required. |
+| `AUTH_URL`                     | the app        | This app's public address; sign-in returns to it. Required.     |
+| `AUTH_MICROSOFT_ENTRA_ID_*`    | the app        | Client id, client secret and issuer (tenant). Required.         |
+| `ENTRA_API_SCOPE`              | the app        | The backend API's scope, requested at sign-in. Required.        |
+| `AUTH_SECRET`                  | the app        | Encrypts the session cookie; 32+ random characters. Required.   |
+| `E2E_USERNAME`, `E2E_PASSWORD` | E2E tests only | Test account without MFA that the tests sign in with.           |
+| `E2E_EXPECTED_GREETING`        | E2E tests only | If set, the tests check the greeting's exact text.              |
 
 Locally they go in `.env.local` (never committed). In Azure they are Web App
-app settings. Secrets, once there are any, come from Azure Key Vault.
+app settings. Secrets (`AUTH_MICROSOFT_ENTRA_ID_SECRET`, `AUTH_SECRET`) come
+from Azure Key Vault.
 
 ## From commit to production
 

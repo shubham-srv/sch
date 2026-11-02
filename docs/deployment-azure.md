@@ -25,9 +25,13 @@ settings differ. A separate nightly pipeline re-tests staging and production
 | `<webapp-prod>`            | The Web App (its production slot serves users)                               | `web-frontend`: `webAppName`                                                             |
 | `<webapp-staging>`         | The Web App's staging deployment slot, e.g. `staging`                        | `web-frontend`: `stagingSlot`                                                            |
 | staging backend            | Backend URL used by staging **and** by the pre-deploy E2E run                | `web-frontend`: `stagingApiBaseUrl`                                                      |
-| staging URL                | Public URL of the staging slot, for the nightly run                          | `web-frontend`: `stagingUrl`                                                             |
+| staging URL                | Public URL of the staging slot: its `AUTH_URL`, and where staging E2E runs   | `web-frontend`: `stagingUrl`                                                             |
 | production URL             | Public URL of production (custom domain if you have one)                     | `web-frontend`: `productionUrl`                                                          |
 | expected greeting          | Exact text the backend returns, checked by E2E (optional)                    | `web-frontend`: `expectedGreeting`; when unset, E2E only checks the heading is not empty |
+| Entra settings for CI      | Tenant id, client id and API scope, for the app run on the agent             | `web-frontend`: `entraTenantId`, `entraClientId`, `entraApiScope`                        |
+| CI secrets                 | Client secret, and an `AUTH_SECRET` used only by the agent runs              | `web-frontend` (secret): `entraClientSecret`, `ciAuthSecret`                             |
+| E2E test account           | Signs in for Playwright and pa11y; no MFA                                    | `web-frontend`: `e2eUsername`, and `e2ePassword` (secret)                                |
+| expected user name         | The test account's display name, checked by E2E (optional)                   | `web-frontend`: `expectedUserName`                                                       |
 
 The service connection name is a YAML variable rather than a variable-group
 value. Azure DevOps authorizes service connections before a run starts, and
@@ -42,16 +46,19 @@ and `web-production` are in the YAML for the same reason.
    Add a deployment slot `<webapp-staging>`.
 2. **Settings for both the app and the slot:**
 
-   | Setting                          | Value                                                                                                                                                                      |
-   | -------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-   | Startup command                  | `node server.js` (the pipeline also sets it)                                                                                                                               |
-   | `API_BASE_URL`                   | Backend base URL for that slot. Mark it as a **deployment slot setting** so it stays with the slot on swap. The pipeline sets the staging value; set production's by hand. |
-   | `HOSTNAME`                       | `0.0.0.0` (the pipeline also sets it)                                                                                                                                      |
-   | `SCM_DO_BUILD_DURING_DEPLOYMENT` | `false`: the package is already built (the pipeline also sets it)                                                                                                          |
-   | Always On                        | On                                                                                                                                                                         |
-   | HTTPS Only                       | On                                                                                                                                                                         |
-   | ARR affinity                     | Off (the app is stateless)                                                                                                                                                 |
-   | Health check path                | `/api/health`                                                                                                                                                              |
+   | Setting                                                                                                                                  | Value                                                                                                                                                                        |
+   | ---------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+   | Startup command                                                                                                                          | `node server.js` (the pipeline also sets it)                                                                                                                                 |
+   | `API_BASE_URL`                                                                                                                           | Backend base URL for that slot. Mark it as a **deployment slot setting** so it stays with the slot on swap. The pipeline sets the staging value; set production's by hand.   |
+   | `AUTH_URL`                                                                                                                               | The slot's public URL, exactly as users open it, with no path. **Deployment slot setting.** The pipeline sets the staging value from `stagingUrl`; set production's by hand. |
+   | `AUTH_MICROSOFT_ENTRA_ID_ID`, `AUTH_MICROSOFT_ENTRA_ID_ISSUER` (`https://login.microsoftonline.com/<tenant-id>/v2.0`), `ENTRA_API_SCOPE` | From the app registration (see [Microsoft Entra ID](#microsoft-entra-id)). **Deployment slot settings**, set by hand.                                                        |
+   | `AUTH_MICROSOFT_ENTRA_ID_SECRET`, `AUTH_SECRET`                                                                                          | Key Vault references (see [Secrets](#secrets-key-vault-references)). **Deployment slot settings**, set by hand. A different `AUTH_SECRET` per slot.                          |
+   | `HOSTNAME`                                                                                                                               | `0.0.0.0` (the pipeline also sets it)                                                                                                                                        |
+   | `SCM_DO_BUILD_DURING_DEPLOYMENT`                                                                                                         | `false`: the package is already built (the pipeline also sets it)                                                                                                            |
+   | Always On                                                                                                                                | On                                                                                                                                                                           |
+   | HTTPS Only                                                                                                                               | On                                                                                                                                                                           |
+   | ARR affinity                                                                                                                             | Off (the app is stateless)                                                                                                                                                   |
+   | Health check path                                                                                                                        | `/api/health`                                                                                                                                                                |
 
    Do not set `PORT`: App Service sets it, and `server.js` reads it.
    `server.js` sets `NODE_ENV=production` itself. Every app variable is listed
@@ -80,17 +87,48 @@ production back if the previous version is still in the staging slot.
 
 ## Health check
 
-`/api/health` returns `200 {"status":"ok"}`. It never calls the backend, so a
-backend outage does not get instances recycled. App Service pings it on every
-instance and takes an instance out of rotation after repeated failures (useful
-with two or more instances). The pipeline also polls it after each deploy and
-after the swap.
+`/api/health` returns `200 {"status":"ok"}`. It never calls the backend and
+needs no session, so a backend outage does not get instances recycled. App
+Service pings it on every instance and takes an instance out of rotation after
+repeated failures (useful with two or more instances). The pipeline also polls
+it after each deploy and after the swap. If you change its path, change the
+Web App's **Health check path** at the same time, on both slots.
+
+## Microsoft Entra ID
+
+Users sign in with a single-tenant app registration (a confidential client).
+In the Azure portal:
+
+1. **App registration > Authentication:** a **Web** platform with these
+   redirect URIs:
+   - `http://localhost:3000/api/auth/callback/microsoft-entra-id` (local
+     development and the pipeline's E2E stage)
+   - `http://localhost:3001/api/auth/callback/microsoft-entra-id` (the
+     pipeline's Accessibility stage)
+   - `<staging URL>/api/auth/callback/microsoft-entra-id` and
+     `<production URL>/api/auth/callback/microsoft-entra-id`
+2. **Certificates & secrets:** a client secret, stored in Key Vault. Secrets
+   expire: note the date and rotate it before then. A certificate or a
+   federated credential avoids that and is the better long-term option.
+3. **API permissions:** the backend API's delegated scope (e.g.
+   `api://<backend-app-id>/access_scan`), with admin consent granted.
+4. **Enterprise application > Properties:** **Assignment required** = Yes.
+   Under **Users and groups**, assign the security groups whose members may
+   use the app. Microsoft then refuses everyone else at sign-in, before the
+   app sees them.
+5. **Test account** for E2E and pa11y: a member of an assigned group, without
+   MFA (excluded through Conditional Access, ideally only from the build
+   agents' network). Its password goes in `e2ePassword` as a secret.
+
+The app reads the values through the app settings above and `.env.example`.
+`AUTH_SECRET` encrypts the session cookie: changing it signs everyone out of
+that slot.
 
 ## Secrets: Key Vault references
 
-Version 1 has no secrets. When one is added (Version 2: `ENTRA_CLIENT_SECRET`,
-`SESSION_SECRET`), store it in Key Vault `<keyvault-name>` and set the app
-setting to a reference instead of the value:
+`AUTH_MICROSOFT_ENTRA_ID_SECRET` and `AUTH_SECRET` are secrets. Store each in
+Key Vault `<keyvault-name>` and set the app setting to a reference instead of
+the value:
 
 ```text
 @Microsoft.KeyVault(SecretUri=https://<keyvault-name>.vault.azure.net/secrets/<secret-name>/)
@@ -98,7 +136,9 @@ setting to a reference instead of the value:
 
 Give the app's and the slot's system-assigned managed identities the
 **Key Vault Secrets User** role on the vault. Never put secret values in
-pipeline YAML, or in a variable group without the secret flag.
+pipeline YAML, or in a variable group without the secret flag. The variable
+group's secrets (`entraClientSecret`, `ciAuthSecret`, `e2ePassword`) can
+come from the same vault by linking the group to it.
 
 ## Slot swap
 
@@ -106,7 +146,9 @@ pipeline YAML, or in a variable group without the secret flag.
 `AzureAppServiceManage@0`. App Service warms up the staging instances before
 switching traffic. The production slot stays online throughout, and if the
 release is bad, swapping again restores the previous version. Settings marked
-as deployment slot settings (`API_BASE_URL`) do not move with the swap.
+as deployment slot settings (`API_BASE_URL`, `AUTH_URL`, the Entra
+settings and both secrets) do not move with the swap. If `AUTH_URL` were
+not one, production would send users back to the staging URL after sign-in.
 
 After a swap, the **staging slot holds the previous production version** until
 the next deploy. The nightly run tests whatever is in staging at the time.
@@ -179,7 +221,9 @@ day, even when nobody touched the frontend. Change the schedule in the
 ## First-run checklist (owner)
 
 - [ ] All stages through **Deploy_Staging** are green.
-- [ ] The staging URL shows an `h1` with the greeting from the real backend.
+- [ ] The staging URL redirects to `/login`; signing in with Microsoft lands on
+      an `h1` with the greeting from the real backend and your name in the top
+      bar; **Sign out** returns to `/login`.
 - [ ] The Web App's health check reports healthy.
 - [ ] The package version appears in the Azure Artifacts feed.
 - [ ] The nightly pipeline shows a scheduled run (Pipelines > ... > Scheduled runs).

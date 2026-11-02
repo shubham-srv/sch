@@ -53,6 +53,33 @@ describe("createApiClient", () => {
     expect(error).toMatchObject({ status: 502 });
   });
 
+  it("sends the access token as a bearer token", async () => {
+    const fetch = stubFetch(Response.json({}));
+    const client = createApiClient({
+      baseUrl: "https://backend.example.com",
+      accessToken: "token-123",
+      fetch,
+    });
+
+    await client.get("/items");
+
+    const headers = new Headers(fetch.mock.calls[0]?.[1]?.headers);
+    expect(headers.get("Authorization")).toBe("Bearer token-123");
+  });
+
+  it("sends no Authorization header without an access token", async () => {
+    const fetch = stubFetch(Response.json({}));
+    const client = createApiClient({
+      baseUrl: "https://backend.example.com",
+      fetch,
+    });
+
+    await client.get("/items");
+
+    const headers = new Headers(fetch.mock.calls[0]?.[1]?.headers);
+    expect(headers.has("Authorization")).toBe(false);
+  });
+
   it("replaces an invalid incoming correlation id", async () => {
     const fetch = stubFetch(Response.json({}));
     const client = createApiClient({

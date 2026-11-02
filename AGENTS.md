@@ -7,3 +7,9 @@ This version has breaking changes — APIs, conventions, and file structure may 
 This block is written and re-added by `next dev` — verify at `node_modules/next/dist/server/lib/generate-agent-files.js`. Removing it from a diff only re-creates the uncommitted change; committing it with your work keeps the tree clean.
 
 <!-- END:nextjs-agent-rules -->
+
+## Project conventions
+
+- Conventions for all work: `.claude/rules/*.md` (layout, testing, code review).
+- Workflow for building a feature: `.claude/skills/new-feature/SKILL.md`.
+  Follow it step by step, including stopping for plan approval.

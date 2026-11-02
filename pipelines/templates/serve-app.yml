@@ -1,6 +1,9 @@
 # Starts the packaged app (dist/app, i.e. server.js) on the agent, pointed at
-# a real backend, runs the given steps against it, then always stops it and
-# prints its log.
+# a real backend and real Microsoft Entra ID, runs the given steps against it,
+# then always stops it and prints its log. Tests must open it at
+# http://localhost:<port>, its AUTH_URL, whose callback
+# (/api/auth/callback/microsoft-entra-id) has to be a redirect URI of the app
+# registration.
 parameters:
   - name: appDirectory
     type: string
@@ -33,6 +36,13 @@ steps:
       PORT: ${{ parameters.port }}
       HOSTNAME: 127.0.0.1
       API_BASE_URL: ${{ parameters.apiBaseUrl }}
+      AUTH_URL: http://localhost:${{ parameters.port }}
+      AUTH_MICROSOFT_ENTRA_ID_ISSUER: https://login.microsoftonline.com/$(entraTenantId)/v2.0
+      AUTH_MICROSOFT_ENTRA_ID_ID: $(entraClientId)
+      ENTRA_API_SCOPE: $(entraApiScope)
+      # Secret variables reach a script only when mapped like this.
+      AUTH_MICROSOFT_ENTRA_ID_SECRET: $(entraClientSecret)
+      AUTH_SECRET: $(ciAuthSecret)
 
   - ${{ each step in parameters.steps }}:
       - ${{ step }}

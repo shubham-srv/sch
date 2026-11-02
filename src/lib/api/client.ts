@@ -26,6 +26,8 @@ export interface ApiClientOptions {
   baseUrl: string;
   /** Correlation id from the incoming request; a new one is generated if absent or invalid. */
   correlationId?: string | null;
+  /** The signed-in user's access token, sent as a bearer token. */
+  accessToken?: string;
   /** For tests; defaults to the global fetch. */
   fetch?: typeof fetch;
 }
@@ -33,6 +35,7 @@ export interface ApiClientOptions {
 export function createApiClient({
   baseUrl,
   correlationId,
+  accessToken,
   fetch: fetchImpl = fetch,
 }: ApiClientOptions): ApiClient {
   const root = baseUrl.replace(/\/+$/, "");
@@ -45,6 +48,7 @@ export function createApiClient({
     const headers = new Headers(init.headers);
     headers.set(CORRELATION_ID_HEADER, id);
     headers.set("Accept", "application/json");
+    if (accessToken) headers.set("Authorization", `Bearer ${accessToken}`);
 
     let response: Response;
     let body: unknown;

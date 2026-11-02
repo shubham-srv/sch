@@ -33,6 +33,9 @@ variables:
   # the greeting is not empty".
   - name: expectedGreeting
     value: ""
+  # Same for the test account's display name in the top bar.
+  - name: expectedUserName
+    value: ""
   # TODO(owner): create this variable group; keys are listed in
   # docs/deployment-azure.md.
   - group: web-frontend
@@ -129,8 +132,13 @@ stages:
                 - script: yarn test:e2e
                   displayName: Playwright against the packaged app
                   env:
-                    PLAYWRIGHT_BASE_URL: http://127.0.0.1:3000
+                    # The same origin as the app's AUTH_URL (serve-app.yml),
+                    # or the sign-in cookies end up on another host.
+                    PLAYWRIGHT_BASE_URL: http://localhost:3000
                     E2E_EXPECTED_GREETING: $(expectedGreeting)
+                    E2E_EXPECTED_USER_NAME: $(expectedUserName)
+                    E2E_USERNAME: $(e2eUsername)
+                    E2E_PASSWORD: $(e2ePassword)
           - template: templates/publish-playwright.yml
             parameters:
               title: Playwright E2E
@@ -157,7 +165,9 @@ stages:
                 - script: yarn a11y:ci
                   displayName: pa11y-ci
                   env:
-                    A11Y_BASE_URL: http://127.0.0.1:3001
+                    A11Y_BASE_URL: http://localhost:3001
+                    E2E_USERNAME: $(e2eUsername)
+                    E2E_PASSWORD: $(e2ePassword)
           - task: PublishPipelineArtifact@1
             displayName: Publish a11y report
             condition: always()
@@ -195,14 +205,19 @@ stages:
                     package: $(Pipeline.Workspace)/release
                     slot: $(stagingSlot)
                     apiBaseUrl: $(stagingApiBaseUrl)
+                    authUrl: $(stagingUrl)
                 - template: templates/setup-node-yarn.yml
                   parameters:
                     installPlaywrightChromium: true
                 - script: yarn test:e2e
                   displayName: Playwright against staging
                   env:
-                    PLAYWRIGHT_BASE_URL: $(deployApp.AppServiceApplicationUrl)
+                    # The slot's AUTH_URL: sign-in returns there.
+                    PLAYWRIGHT_BASE_URL: $(stagingUrl)
                     E2E_EXPECTED_GREETING: $(expectedGreeting)
+                    E2E_EXPECTED_USER_NAME: $(expectedUserName)
+                    E2E_USERNAME: $(e2eUsername)
+                    E2E_PASSWORD: $(e2ePassword)
                 - template: templates/publish-playwright.yml
                   parameters:
                     title: Staging E2E
@@ -247,6 +262,9 @@ stages:
                   env:
                     PLAYWRIGHT_BASE_URL: $(productionUrl)
                     E2E_EXPECTED_GREETING: $(expectedGreeting)
+                    E2E_EXPECTED_USER_NAME: $(expectedUserName)
+                    E2E_USERNAME: $(e2eUsername)
+                    E2E_PASSWORD: $(e2ePassword)
                 - template: templates/publish-playwright.yml
                   parameters:
                     title: Production smoke

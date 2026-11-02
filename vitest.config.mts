@@ -16,6 +16,14 @@ export default defineConfig({
     },
   },
   test: {
+    server: {
+      deps: {
+        // Run through Vite rather than plain Node: its imports of
+        // "next/headers" and "next/navigation" then resolve, and reach the
+        // mocks in tests/utils.
+        inline: ["next-auth"],
+      },
+    },
     reporters: ["default", "junit"],
     outputFile: { junit: "reports/junit/vitest.xml" },
     coverage: {

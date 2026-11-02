@@ -54,6 +54,8 @@ differed from what the spec assumed. `docs/spec.md` itself is kept as written.
 | shadcn (CLI)                                                    | 4.22.1                                                                                                                                                         | style `base-nova`, base colour `neutral`                                                        |
 | @base-ui/react / class-variance-authority / cn / tw-animate-css | 1.9.0 / 0.7.1 / 0.5.0 / 1.4.0                                                                                                                                  | added by shadcn                                                                                 |
 | zod                                                             | 4.6.7                                                                                                                                                          |                                                                                                 |
+| next-auth (Auth.js)                                             | 5.0.0-beta.32                                                                                                                                                  | pinned exactly, since it is a beta; brings @auth/core 0.41.3                                    |
+| jose                                                            | 6.2.14                                                                                                                                                         | tests only: signs the fake Entra ID tokens                                                      |
 | vitest, @vitest/coverage-v8                                     | 5.0.5                                                                                                                                                          |                                                                                                 |
 | vite                                                            | 8.3.5                                                                                                                                                          | peer of Vitest, `@vitejs/plugin-react` and MSW                                                  |
 | @vitejs/plugin-react                                            | 6.1.2                                                                                                                                                          |                                                                                                 |
@@ -167,6 +169,64 @@ differed from what the spec assumed. `docs/spec.md` itself is kept as written.
 - **`ApiError.status` is 0 when no response was received** (network failure).
 - **An incoming `X-Correlation-Id` is forwarded only if it matches
   `[\w.:-]{1,128}`**; otherwise a new UUID is generated.
+
+## Sign-in (Microsoft Entra ID)
+
+- **Auth.js (NextAuth v5, `next-auth@5.0.0-beta.32`)** runs the sign-in, so
+  this app matches the team's other NextAuth project (owner's choice). v5 is
+  still published as a beta; it supports Next.js 16 and has server-side
+  `signIn()` and `signOut()` for Server Actions, which v4 lacks. The version
+  is pinned exactly because betas can change their API. MSAL Node was not
+  used: it keeps tokens in its own cache, which needs a shared store once the
+  app runs on several instances, whereas a session cookie keeps the app
+  stateless.
+- **Auth.js's default routes and variable names** (owner's choice): its
+  routes live under `/api/auth`, and the settings are `AUTH_URL`,
+  `AUTH_SECRET` and `AUTH_MICROSOFT_ENTRA_ID_ID`, `_SECRET` and `_ISSUER`.
+  `ENTRA_API_SCOPE` is this app's own. `getServerEnv()` validates all of them
+  and requires a tenant id in the issuer, which keeps sign-in to one
+  organization.
+- **The config is built per request** (`NextAuth(() => ...)`), so `next build`
+  runs without the variables. With that form, `auth(callback)` returns a
+  Promise rather than a middleware function, so the proxy cannot use Auth.js's
+  documented middleware wrapper. It calls Auth.js's session route in process
+  instead, as Auth.js's own `auth()` does.
+- **The proxy forwards the rewritten session cookie** to the request it lets
+  through. Auth.js puts it on the response only, so a page rendered right
+  after a renewal would otherwise send the old, possibly expired, token.
+- **Token renewal is this app's code** (`tokens.ts`). Auth.js does not renew
+  tokens itself; its guide does it in the `jwt` callback, as here. A failed
+  renewal returns null, and Auth.js then deletes the cookie.
+- **The ID token is not kept, and the user's photo is not fetched.** The
+  provider's default `profile()` downloads the photo from Microsoft Graph,
+  which the access token (issued for the backend) cannot call, and it would
+  bloat the cookie.
+- **State and nonce checks are on as well as PKCE.** Auth.js checks only
+  PKCE by default.
+- **Sign-in and sign-out are Server Actions** (`signInWithMicrosoft`,
+  `signOutOfApp`). A 401 from the backend still needs a route,
+  `GET /auth/signout`, because a Server Component render cannot delete
+  cookies.
+- **The session lasts 7 days from the last visit** (owner's choice), with no
+  absolute limit. Entra ends it by refusing a renewal.
+- **No error message on the login page** (owner's choice). Only members of
+  the assigned groups can sign in at all, so Auth.js's error page is `/login`
+  itself, and the reason is logged on the server.
+- **`/login` stays open to signed-in users.** Redirecting them away would loop
+  whenever the backend rejects a token the app still considers valid.
+- **`getCurrentUser()` is a placeholder** until the backend has a
+  current-user endpoint; it returns the token's `name` and
+  `preferred_username`. It has no tests until it calls the backend.
+- **The health check is `/api/health`** (owner's choice).
+- **E2E signs in through the real Microsoft sign-in** with a test account
+  without MFA, instead of a fake identity provider, so it proves the app works
+  with Entra ID. The signed-in hello-world test stays `@smoke` (owner's
+  choice), so production needs the test account too.
+- **Vitest inlines `next-auth`** (`server.deps.inline`). Node cannot resolve
+  its extensionless `next/headers` imports, and inlining also lets the
+  `next/headers` and `next/navigation` mocks reach it.
+- **The proxy matcher test uses `unstable_doesMiddlewareMatch`.** The Next.js
+  docs name it `unstable_doesProxyMatch`, which this version does not export.
 
 ## Tests
 

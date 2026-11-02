@@ -33,7 +33,8 @@ pipeline to Azure. Real features will follow the same path.
 ```text
  Browser          Next.js server (Node)                                Backend API
     │  GET /             │                                                 │
-    │ ─────────────────► │ 1. picks src/app/page.tsx inside layout.tsx     │
+    │ ─────────────────► │ 0. proxy.ts: signed in? (if not: to /login)     │
+    │                    │ 1. picks (dashboard)/page.tsx and its layouts   │
     │                    │ 2. sends the static shell at once               │
     │ ◄───── header, "Loading…" ───                                        │
     │                    │ 3. Greeting component calls getGreeting()       │
@@ -47,32 +48,41 @@ Step by step, with the files involved:
 
 1. **The browser asks for `/`.** On Azure, App Service passes the request to
    Node.js running `server.js`, the Next.js production server.
-2. **Next.js finds the route.** A folder or file under `src/app/` is a URL.
-   `src/app/page.tsx` is `/`, and `src/app/layout.tsx` wraps every page
-   (`<html>`, the skip link, the header, `<main>`).
-3. **The static parts go out immediately.** The layout and the "Loading…"
+2. **Next.js checks the user is signed in.** `src/proxy.ts` runs first. Without
+   a valid session cookie it redirects to `/login`, where the user signs in
+   with Microsoft through Auth.js (NextAuth). Reading the session also renews
+   the user's access token when it is about to expire.
+3. **Next.js finds the route.** A folder or file under `src/app/` is a URL; a
+   folder in brackets, such as `(dashboard)`, groups routes without adding to
+   the URL. `src/app/(dashboard)/page.tsx` is `/`. `src/app/layout.tsx` wraps
+   every page (`<html>`, the skip link), and `(dashboard)/layout.tsx` adds the
+   top bar, the sidebar and `<main>`.
+4. **The static parts go out immediately.** The layout and the "Loading…"
    placeholder don't depend on the backend, so Next.js prepared them at build
    time and sends them straight away. This is the _static shell_.
-4. **The dynamic part is fetched on the server.** In `page.tsx`, the
+5. **The dynamic part is fetched on the server.** In `page.tsx`, the
    `Greeting` component sits inside `<Suspense>` (React's "this part may take
    a moment" boundary). It calls `getGreeting()` in
    `src/features/greeting/api/queries.ts`, which:
    - gets a backend client from `getApiClient()` (`src/lib/api/server.ts`). That
      reads `API_BASE_URL` from the environment, checked by
-     `src/lib/env.server.ts`. It also picks up the incoming request's
-     correlation id, a tag that lets the backend's logs be matched with ours;
+     `src/lib/env.server.ts`, and the user's access token from the session
+     cookie, which it sends with every backend call. It also picks up the
+     incoming request's correlation id, a tag that lets the backend's logs be
+     matched with ours;
    - calls `client.get("/greeting")` (`src/lib/api/client.ts`), a thin wrapper
      around `fetch`;
    - passes the JSON to `toGreeting()` (`src/features/greeting/api/mappers.ts`),
      which checks that it really is `{ message: string }`.
-5. **The heading is streamed in.** `GreetingHeading` renders the `<h1>`.
+6. **The heading is streamed in.** `GreetingHeading` renders the `<h1>`.
    Next.js sends that HTML in the same response, and the browser swaps it in
    where "Loading…" was. The user gets one page; it just arrives in two parts.
-6. **If anything fails**, for example the backend is down, answers 500 or
+7. **If anything fails**, for example the backend is down, answers 500 or
    returns the wrong shape, the code throws an error. Next.js then shows
-   `src/app/error.tsx`, which renders `ErrorView`: a friendly message, a
-   reference number, and a **Try again** button. Internal details never reach
-   the page; they go to the server log.
+   `src/app/(dashboard)/error.tsx`, which renders `ErrorView`: a friendly
+   message, a reference number, and a **Try again** button. Internal details
+   never reach the page; they go to the server log. If the backend answers
+   401 (it rejected the token), the user is signed out instead.
 
 ### Server components and client components
 
@@ -92,7 +102,7 @@ client components small.
 
 All backend calls happen on our server. That means:
 
-- the backend's address and, from Version 2, users' access tokens never
+- the backend's address and users' access tokens never
   reach the browser;
 - the backend doesn't have to be reachable from the internet, or deal with
   cross-origin (CORS) rules;
@@ -106,7 +116,9 @@ someone imports one into a client component by mistake, the build fails.
 ## 2. A tour of the folders
 
 ```text
-src/app/                   routes: page.tsx, layout.tsx, error.tsx, api/health/route.ts
+src/app/                   routes: (dashboard)/ for signed-in pages, (auth)/ for sign-in, api/ for route handlers
+src/proxy.ts               runs before every request: sign-in check and token renewal
+src/features/auth/         the login form, the user menu, getCurrentUser()
 src/features/greeting/     everything the greeting feature owns
   api/queries.ts           getGreeting(): calls the backend
   api/mappers.ts           the zod schema for the response, and the mapping to the UI model
@@ -114,7 +126,7 @@ src/features/greeting/     everything the greeting feature owns
   index.ts                 what the rest of the app may import from this feature
 src/components/ui/         shadcn/ui components (the Button); treated as vendored code
 src/components/            shared components (ErrorView)
-src/lib/                   env.server.ts (config), api/ (client, errors), utils.ts
+src/lib/                   env.server.ts (config), api/ (client, errors), auth/ (Auth.js config, session), utils.ts
 tests/                     Vitest setup, the fake backend (MSW), integration tests
 e2e/                       Playwright browser tests and page objects
 scripts/package-app.mjs    turns the build into the deployable dist/app folder
@@ -726,7 +738,7 @@ The same build runs everywhere; only configuration changes.
 Configuration is read when the server starts, not when the app is built.
 That's why one build can serve every environment, and why `NEXT_PUBLIC_*`
 variables, which are fixed at build time, are not used for anything that
-differs between environments. Secrets (from Version 2) come from Azure
+differs between environments. Secrets come from Azure
 Key Vault, never from the repo.
 
 ---

@@ -1,12 +1,17 @@
 # Zip-deploys the packaged app (a folder containing server.js) to a slot of
 # the Linux Web App, then waits until /api/health answers. Sets the output
 # variable deployApp.AppServiceApplicationUrl.
+#
+# The Entra settings and secrets are set on each slot by hand, as deployment
+# slot settings (docs/deployment-azure.md); this only sets the values below.
 parameters:
   - name: package
     type: string
   - name: slot
     type: string
   - name: apiBaseUrl
+    type: string
+  - name: authUrl
     type: string
 
 steps:
@@ -26,6 +31,7 @@ steps:
       # The package is already built: App Service must not run its own build.
       appSettings: >-
         -API_BASE_URL ${{ parameters.apiBaseUrl }}
+        -AUTH_URL ${{ parameters.authUrl }}
         -HOSTNAME 0.0.0.0
         -SCM_DO_BUILD_DURING_DEPLOYMENT false
 

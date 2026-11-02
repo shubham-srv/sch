@@ -22,8 +22,8 @@ The file extension picks the environment: `.test.ts` runs in node, `.test.tsx` i
 - Cover every UI state with `server.use(...)` inside the test: success, empty,
   error, and network failure (`HttpResponse.error()`). Unhandled requests fail.
 - A query's unit test stubs the client with `vi.mock("@/lib/api/server")`.
-  Integration tests mock `next/headers` and `next/server` with the helpers in
-  `tests/utils/`.
+  Integration tests mock `next/headers`, `next/server` and `next/navigation`
+  with the helpers in `tests/utils/`.
 - Async server components aren't rendered in Vitest. Unit-test their logic as
   plain functions; E2E covers the component.
 
@@ -36,6 +36,9 @@ The file extension picks the environment: `.test.ts` runs in node, `.test.tsx` i
 - Use page objects in `e2e/pages/` with role or label locators.
 - Tag read-only tests `@smoke`; only those run against production. Tests that
   write create and clean up their own data.
+- Tests start signed in, from the state `e2e/tests/auth.setup.ts` saves
+  (test account in `E2E_USERNAME` / `E2E_PASSWORD`). Signed-out tests use
+  `test.use({ storageState: { cookies: [], origins: [] } })`.
 
 ## Commands
 

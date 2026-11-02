@@ -24,6 +24,8 @@ parameters:
 variables:
   - name: expectedGreeting
     value: ""
+  - name: expectedUserName
+    value: ""
   - group: web-frontend
   - name: CI
     value: "true"
@@ -46,6 +48,9 @@ jobs:
         env:
           PLAYWRIGHT_BASE_URL: $(stagingUrl)
           E2E_EXPECTED_GREETING: $(expectedGreeting)
+          E2E_EXPECTED_USER_NAME: $(expectedUserName)
+          E2E_USERNAME: $(e2eUsername)
+          E2E_PASSWORD: $(e2ePassword)
       - template: templates/publish-playwright.yml
         parameters:
           title: Nightly staging E2E
@@ -62,6 +67,8 @@ jobs:
         displayName: pa11y-ci against staging
         env:
           A11Y_BASE_URL: $(stagingUrl)
+          E2E_USERNAME: $(e2eUsername)
+          E2E_PASSWORD: $(e2ePassword)
       - task: PublishPipelineArtifact@1
         displayName: Publish a11y report
         condition: always()
@@ -81,6 +88,9 @@ jobs:
         env:
           PLAYWRIGHT_BASE_URL: $(productionUrl)
           E2E_EXPECTED_GREETING: $(expectedGreeting)
+          E2E_EXPECTED_USER_NAME: $(expectedUserName)
+          E2E_USERNAME: $(e2eUsername)
+          E2E_PASSWORD: $(e2ePassword)
       - template: templates/publish-playwright.yml
         parameters:
           title: Nightly production smoke

@@ -25,18 +25,8 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
         >
           Skip to content
         </a>
-        <header className="border-b">
-          <div className="mx-auto w-full max-w-3xl px-4 py-3 font-semibold">
-            Web
-          </div>
-        </header>
-        <main
-          id="main"
-          tabIndex={-1}
-          className="mx-auto w-full max-w-3xl flex-1 px-4 py-12 focus:outline-none"
-        >
-          {children}
-        </main>
+        {/* Each route group's layout provides the <main id="main"> the link targets. */}
+        {children}
       </body>
     </html>
   );
